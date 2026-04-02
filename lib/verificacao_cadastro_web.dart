@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/services.dart'; // Importante para o formatters
 import 'tema_padrao_web.dart';
 
 class VerificacaoCadastroWeb extends StatefulWidget {
@@ -16,9 +17,16 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
   bool _carregando = false;
 
   Future<void> _validarCodigo() async {
+    if (_codigoController.text.length < 6) {
+      _mostrarAlerta("Aviso", "O código deve ter 6 dígitos.");
+      return;
+    }
+
     setState(() => _carregando = true);
     try {
-      final url = Uri.parse("https://sua-url-no-render.com/verificar-codigo");
+      // URL DIRETA DO RENDER (Sem localhost!)
+      final url = Uri.parse("https://polifenois-backend.onrender.com/verificar-codigo");
+      
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
@@ -31,12 +39,12 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
       final result = jsonDecode(response.body);
 
       if (response.statusCode == 200 && result['sucesso']) {
-        _mostrarAlerta("Sucesso!", "Sua conta foi validada com sucesso. Agora você pode fazer login.");
+        _mostrarAlerta("Sucesso!", "Sua conta foi validada. Agora você pode fazer login.");
       } else {
         _mostrarAlerta("Erro", result['erro'] ?? "Código inválido.");
       }
     } catch (e) {
-      _mostrarAlerta("Erro", "Falha ao conectar com o servidor.");
+      _mostrarAlerta("Erro de Conexão", "Não foi possível alcançar o servidor no Render.");
     } finally {
       setState(() => _carregando = false);
     }
@@ -69,19 +77,20 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.mark_email_read_outlined, size: 60, color: PolifenoisTema.azulPrimario),
+                  Icon(Icons.security, size: 60, color: PolifenoisTema.azulPrimario),
                   SizedBox(height: 20),
-                  Text("Validar Cadastro", style: PolifenoisTema.tituloEstilo),
+                  Text("Validação", style: PolifenoisTema.tituloEstilo),
                   SizedBox(height: 10),
-                  Text("Enviamos um código de 6 dígitos para o seu e-mail e celular.", 
-                    textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+                  Text("Digite o código enviado para:\n${widget.email}", 
+                    textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
                   SizedBox(height: 30),
                   TextField(
                     controller: _codigoController,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
-                    decoration: PolifenoisTema.inputDecoracao("Digite o Código", Icons.lock_clock),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 10),
+                    decoration: PolifenoisTema.inputDecoracao("CÓDIGO", Icons.vpn_key),
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
                   ),
                   SizedBox(height: 30),
                   _carregando 
@@ -94,7 +103,7 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
                         minimumSize: Size(double.infinity, 55),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text("CONFIRMAR CÓDIGO", style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text("VALIDAR CONTA", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                 ],
               ),

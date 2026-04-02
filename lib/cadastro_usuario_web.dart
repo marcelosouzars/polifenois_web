@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'tema_padrao_web.dart'; // Importando seu novo arquivo renomeado
+import 'tema_padrao_web.dart'; // [cite: 1357]
 
 class CadastroUsuarioWeb extends StatefulWidget {
   @override
@@ -11,6 +11,7 @@ class CadastroUsuarioWeb extends StatefulWidget {
 class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
   final _nome = TextEditingController();
   final _email = TextEditingController();
+  final _telefone = TextEditingController(); // Novo campo
   final _senha = TextEditingController();
   final _rg = TextEditingController();
   final _cpf = TextEditingController();
@@ -21,15 +22,14 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
   bool _enviando = false;
 
   Future<void> _executarCadastro() async {
-    if (_cpf.text.isEmpty || _email.text.isEmpty) {
-      _mensagem("Aviso", "CPF e E-mail são obrigatórios.");
+    if (_cpf.text.isEmpty || _email.text.isEmpty || _telefone.text.isEmpty) {
+      _mensagem("Aviso", "CPF, E-mail e Telefone são obrigatórios.");
       return;
     }
 
     setState(() => _enviando = true);
     try {
-      // Substitua pela sua URL real do Render [cite: 1655]
-      final url = Uri.parse("https://sua-url-no-render.com/signup");
+      final url = Uri.parse("https://sua-url-no-render.com/signup"); // [cite: 1216, 1655]
       
       final response = await http.post(
         url,
@@ -37,6 +37,7 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
         body: jsonEncode({
           "nome": _nome.text,
           "email": _email.text,
+          "telefone": _telefone.text,
           "senha": _senha.text,
           "rg": _rg.text,
           "cpf": _cpf.text,
@@ -51,12 +52,12 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
       final result = jsonDecode(response.body);
 
       if (response.statusCode == 201 && result['sucesso']) {
-        _mensagem("Sucesso!", "Cadastro realizado. Agora valide seu e-mail e telefone.");
+        _mensagem("Sucesso!", "Cadastro realizado. Vamos validar seu e-mail e telefone.");
       } else {
         _mensagem("Erro", result['erro'] ?? "Falha no cadastro.");
       }
     } catch (e) {
-      _mensagem("Erro de Conexão", "Não foi possível falar com o servidor.");
+      _mensagem("Erro de Conexão", "Não foi possível falar com o servidor no Render.");
     } finally {
       setState(() => _enviando = false);
     }
@@ -78,7 +79,7 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
     return Scaffold(
       backgroundColor: PolifenoisTema.azulClaroFundo,
       appBar: AppBar(
-        title: Text("Novo Cadastro de Gestante", style: TextStyle(color: Colors.white)),
+        title: Text("VETIX - Cadastro de Paciente", style: TextStyle(color: Colors.white)),
         backgroundColor: PolifenoisTema.azulPrimario,
         elevation: 0,
       ),
@@ -88,13 +89,13 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
           child: Container(
             width: 700,
             child: Card(
-              elevation: 5,
+              elevation: 8,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Padding(
                 padding: EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    Text("Informações Pessoais", style: PolifenoisTema.tituloEstilo),
+                    Text("Dados da Gestante", style: PolifenoisTema.tituloEstilo),
                     SizedBox(height: 30),
                     TextField(controller: _nome, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person)),
                     SizedBox(height: 15),
@@ -106,7 +107,13 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
                       ],
                     ),
                     SizedBox(height: 15),
-                    TextField(controller: _email, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email)),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: _email, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email))),
+                        SizedBox(width: 15),
+                        Expanded(child: TextField(controller: _telefone, decoration: PolifenoisTema.inputDecoracao("Celular (DDD + Número)", Icons.phone_android))),
+                      ],
+                    ),
                     SizedBox(height: 15),
                     TextField(controller: _senha, obscureText: true, decoration: PolifenoisTema.inputDecoracao("Senha de Acesso", Icons.lock)),
                     SizedBox(height: 15),

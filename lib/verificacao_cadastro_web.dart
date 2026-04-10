@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/services.dart'; // Importante para o formatters
-import 'tema_padrao_web.dart';
+import 'tema_padrao_web.dart'; // [cite: 2691, 2796]
 
 class VerificacaoCadastroWeb extends StatefulWidget {
   final String email;
@@ -17,14 +16,9 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
   bool _carregando = false;
 
   Future<void> _validarCodigo() async {
-    if (_codigoController.text.length < 6) {
-      _mostrarAlerta("Aviso", "O código deve ter 6 dígitos.");
-      return;
-    }
-
     setState(() => _carregando = true);
     try {
-      // URL DIRETA DO RENDER (Sem localhost!)
+      // URL real do seu backend no Render [cite: 3044]
       final url = Uri.parse("https://polifenois-backend.onrender.com/verificar-codigo");
       
       final response = await http.post(
@@ -39,12 +33,12 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
       final result = jsonDecode(response.body);
 
       if (response.statusCode == 200 && result['sucesso']) {
-        _mostrarAlerta("Sucesso!", "Sua conta foi validada. Agora você pode fazer login.");
+        _mostrarAlerta("Sucesso!", "Sua conta foi validada. Agora você pode fazer login."); [cite: 3055]
       } else {
-        _mostrarAlerta("Erro", result['erro'] ?? "Código inválido.");
+        _mostrarAlerta("Erro", result['erro'] ?? "Código inválido."); [cite: 3057]
       }
     } catch (e) {
-      _mostrarAlerta("Erro de Conexão", "Não foi possível alcançar o servidor no Render.");
+      _mostrarAlerta("Erro", "Falha ao conectar com o servidor."); [cite: 3060]
     } finally {
       setState(() => _carregando = false);
     }
@@ -64,7 +58,7 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PolifenoisTema.azulClaroFundo,
+      backgroundColor: PolifenoisTema.azulClaroFundo, [cite: 2652, 2703]
       body: Center(
         child: Container(
           width: 400,
@@ -77,33 +71,32 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.security, size: 60, color: PolifenoisTema.azulPrimario),
+                  Icon(Icons.mark_email_read_outlined, size: 60, color: PolifenoisTema.azulPrimario), [cite: 3091]
                   SizedBox(height: 20),
-                  Text("Validação", style: PolifenoisTema.tituloEstilo),
+                  Text("Validar Cadastro", style: PolifenoisTema.tituloEstilo), [cite: 3093]
                   SizedBox(height: 10),
-                  Text("Digite o código enviado para:\n${widget.email}", 
-                    textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                  Text("Digite o código de 6 dígitos enviado para você.",
+                    textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])), [cite: 3095]
                   SizedBox(height: 30),
                   TextField(
                     controller: _codigoController,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 10),
-                    decoration: PolifenoisTema.inputDecoracao("CÓDIGO", Icons.vpn_key),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
+                    decoration: PolifenoisTema.inputDecoracao("Código", Icons.lock_clock), [cite: 3102]
                     keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
                   ),
                   SizedBox(height: 30),
-                  _carregando 
-                  ? CircularProgressIndicator()
+                  _carregando
+                  ? CircularProgressIndicator(color: PolifenoisTema.azulPrimario)
                   : ElevatedButton(
                       onPressed: _validarCodigo,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: PolifenoisTema.azulPrimario,
+                        backgroundColor: PolifenoisTema.azulPrimario, [cite: 2751]
                         foregroundColor: Colors.white,
                         minimumSize: Size(double.infinity, 55),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text("VALIDAR CONTA", style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text("CONFIRMAR CÓDIGO", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                 ],
               ),

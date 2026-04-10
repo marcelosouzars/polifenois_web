@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'tema_padrao_web.dart'; // [cite: 1357]
+import 'package:flutter/services.dart';
+import 'tema_padrao_web.dart'; // Importando o tema azul [cite: 2646]
+import 'VERIFICACAO_CADASTRO_WEB.DART'; // Importando a tela de verificação 
 
 class CadastroUsuarioWeb extends StatefulWidget {
   @override
@@ -9,27 +11,30 @@ class CadastroUsuarioWeb extends StatefulWidget {
 }
 
 class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
+  // Controllers para capturar os dados do formulário [cite: 1374, 1641]
   final _nome = TextEditingController();
   final _email = TextEditingController();
-  final _telefone = TextEditingController(); // Novo campo
+  final _telefone = TextEditingController();
   final _senha = TextEditingController();
   final _rg = TextEditingController();
   final _cpf = TextEditingController();
-  final _nascimento = TextEditingController();
-  final _endereco = TextEditingController();
+  final _nasc = TextEditingController();
+  final _end = TextEditingController();
   final _idade = TextEditingController();
   final _semana = TextEditingController();
-  bool _enviando = false;
+  bool _loading = false;
 
-  Future<void> _executarCadastro() async {
+  Future<void> _enviar() async {
+    // Validação básica de campos obrigatórios [cite: 2429, 2888]
     if (_cpf.text.isEmpty || _email.text.isEmpty || _telefone.text.isEmpty) {
-      _mensagem("Aviso", "CPF, E-mail e Telefone são obrigatórios.");
+      _pop("Aviso", "CPF, E-mail e Telefone são obrigatórios.");
       return;
     }
 
-    setState(() => _enviando = true);
+    setState(() => _loading = true);
     try {
-      final url = Uri.parse("https://sua-url-no-render.com/signup"); // [cite: 1216, 1655]
+      // URL real do seu backend no Render [cite: 1216, 1655]
+      final url = Uri.parse("https://polifenois-backend.onrender.com/signup");
       
       final response = await http.post(
         url,
@@ -37,12 +42,12 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
         body: jsonEncode({
           "nome": _nome.text,
           "email": _email.text,
-          "telefone": _telefone.text,
+          "telefone": _telefone.text, // Campo para SMS [cite: 3189, 3207]
           "senha": _senha.text,
           "rg": _rg.text,
           "cpf": _cpf.text,
-          "data_nascimento": _nascimento.text,
-          "endereco": _endereco.text,
+          "data_nascimento": _nasc.text,
+          "endereco": _end.text,
           "idade": _idade.text,
           "semana_gestacao": _semana.text,
           "tipo_usuario": "gestante"
@@ -52,42 +57,50 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
       final result = jsonDecode(response.body);
 
       if (response.statusCode == 201 && result['sucesso']) {
-        _mensagem("Sucesso!", "Cadastro realizado. Vamos validar seu e-mail e telefone.");
+        // Navega para a tela de Verificação após o cadastro [cite: 3054]
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerificacaoCadastroWeb(email: _email.text),
+          ),
+        );
       } else {
-        _mensagem("Erro", result['erro'] ?? "Falha no cadastro.");
+        _pop("Erro", result['erro'] ?? "O servidor recusou o cadastro.");
       }
     } catch (e) {
-      _mensagem("Erro de Conexão", "Não foi possível falar com o servidor no Render.");
+      _pop("Erro de Rede", "Falha de conexão com o Render.");
     } finally {
-      setState(() => _enviando = false);
+      setState(() => _loading = false);
     }
   }
 
-  void _mensagem(String t, String m) {
+  void _pop(String t, String m) {
     showDialog(
-      context: context, 
+      context: context,
       builder: (c) => AlertDialog(
-        title: Text(t, style: TextStyle(color: PolifenoisTema.azulPrimario)), 
-        content: Text(m), 
-        actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text("OK"))]
-      )
+        title: Text(t, style: TextStyle(color: PolifenoisTema.azulPrimario)),
+        content: Text(m),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: Text("OK"))
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PolifenoisTema.azulClaroFundo,
+      backgroundColor: PolifenoisTema.azulClaroFundo, // Fundo azul clínico [cite: 2652, 2703]
       appBar: AppBar(
-        title: Text("VETIX - Cadastro de Paciente", style: TextStyle(color: Colors.white)),
+        title: Text("VETIX - Cadastro de Gestante"),
         backgroundColor: PolifenoisTema.azulPrimario,
         elevation: 0,
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(vertical: 30),
           child: Container(
-            width: 700,
+            width: 700, // Largura para visualização Web [cite: 1689, 2947]
+            padding: EdgeInsets.symmetric(vertical: 40),
             child: Card(
               elevation: 8,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -95,10 +108,12 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
                 padding: EdgeInsets.all(40),
                 child: Column(
                   children: [
-                    Text("Dados da Gestante", style: PolifenoisTema.tituloEstilo),
+                    Text("Informações da Paciente", style: PolifenoisTema.tituloEstilo),
                     SizedBox(height: 30),
+                    
                     TextField(controller: _nome, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person)),
                     SizedBox(height: 15),
+                    
                     Row(
                       children: [
                         Expanded(child: TextField(controller: _cpf, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge))),
@@ -107,40 +122,52 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
                       ],
                     ),
                     SizedBox(height: 15),
+                    
                     Row(
                       children: [
                         Expanded(child: TextField(controller: _email, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email))),
                         SizedBox(width: 15),
-                        Expanded(child: TextField(controller: _telefone, decoration: PolifenoisTema.inputDecoracao("Celular (DDD + Número)", Icons.phone_android))),
+                        Expanded(child: TextField(controller: _telefone, decoration: PolifenoisTema.inputDecoracao("Telefone (DDD + Número)", Icons.phone_android))),
                       ],
                     ),
                     SizedBox(height: 15),
-                    TextField(controller: _senha, obscureText: true, decoration: PolifenoisTema.inputDecoracao("Senha de Acesso", Icons.lock)),
+                    
+                    TextField(controller: _senha, decoration: PolifenoisTema.inputDecoracao("Senha", Icons.lock), obscureText: true),
                     SizedBox(height: 15),
-                    TextField(controller: _nascimento, decoration: PolifenoisTema.inputDecoracao("Nascimento (DD/MM/AAAA)", Icons.calendar_today)),
+                    
+                    TextField(
+                      controller: _nasc, 
+                      decoration: PolifenoisTema.inputDecoracao("Nascimento (DD/MM/AAAA)", Icons.calendar_today),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, DataMaskFormatter()],
+                    ),
                     SizedBox(height: 15),
-                    TextField(controller: _endereco, decoration: PolifenoisTema.inputDecoracao("Endereço Residencial", Icons.home)),
+                    
+                    TextField(controller: _end, decoration: PolifenoisTema.inputDecoracao("Endereço", Icons.home)),
                     SizedBox(height: 15),
+                    
                     Row(
                       children: [
                         Expanded(child: TextField(controller: _idade, decoration: PolifenoisTema.inputDecoracao("Idade", Icons.cake))),
                         SizedBox(width: 15),
-                        Expanded(child: TextField(controller: _semana, decoration: PolifenoisTema.inputDecoracao("Semana Gestacional", Icons.child_friendly))),
+                        Expanded(child: TextField(controller: _semana, decoration: PolifenoisTema.inputDecoracao("Semana Gestação", Icons.child_friendly))),
                       ],
                     ),
+                    
                     SizedBox(height: 40),
-                    _enviando 
-                      ? CircularProgressIndicator()
-                      : ElevatedButton(
-                          onPressed: _executarCadastro,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: PolifenoisTema.azulPrimario,
-                            foregroundColor: Colors.white,
-                            minimumSize: Size(double.infinity, 60),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: Text("FINALIZAR CADASTRO", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    
+                    _loading 
+                    ? CircularProgressIndicator(color: PolifenoisTema.azulPrimario) 
+                    : ElevatedButton(
+                        onPressed: _enviar, 
+                        child: Text("FINALIZAR CADASTRO", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PolifenoisTema.azulPrimario,
+                          foregroundColor: Colors.white,
+                          minimumSize: Size(double.infinity, 60),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
+                      ),
                   ],
                 ),
               ),
@@ -149,5 +176,20 @@ class _CadastroUsuarioWebState extends State<CadastroUsuarioWeb> {
         ),
       ),
     );
+  }
+}
+
+// Formata a data enquanto o usuário digita [cite: 2341]
+class DataMaskFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var text = newValue.text;
+    if (text.length > 8) return oldValue;
+    var newText = "";
+    for (var i = 0; i < text.length; i++) {
+      newText += text[i];
+      if ((i == 1 || i == 3) && i != text.length - 1) newText += "/";
+    }
+    return newValue.copyWith(text: newText, selection: TextSelection.collapsed(offset: newText.length));
   }
 }

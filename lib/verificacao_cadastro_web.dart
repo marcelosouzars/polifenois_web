@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'tema_padrao_web.dart'; // [cite: 2691, 2796]
+import 'tema_padrao_web.dart';
 
 class VerificacaoCadastroWeb extends StatefulWidget {
   final String email;
@@ -18,7 +18,7 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
   Future<void> _validarCodigo() async {
     setState(() => _carregando = true);
     try {
-      // URL real do seu backend no Render [cite: 3044]
+      // URL real do seu backend no Render
       final url = Uri.parse("https://polifenois-backend.onrender.com/verificar-codigo");
       
       final response = await http.post(
@@ -33,12 +33,12 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
       final result = jsonDecode(response.body);
 
       if (response.statusCode == 200 && result['sucesso']) {
-        _mostrarAlerta("Sucesso!", "Sua conta foi validada. Agora você pode fazer login."); [cite: 3055]
+        _mostrarAlerta("Sucesso!", "Sua conta foi validada. Agora você pode fazer login.");
       } else {
-        _mostrarAlerta("Erro", result['erro'] ?? "Código inválido."); [cite: 3057]
+        _mostrarAlerta("Erro", result['erro'] ?? "Código inválido.");
       }
     } catch (e) {
-      _mostrarAlerta("Erro", "Falha ao conectar com o servidor."); [cite: 3060]
+      _mostrarAlerta("Erro", "Falha ao conectar com o servidor.");
     } finally {
       setState(() => _carregando = false);
     }
@@ -58,7 +58,7 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PolifenoisTema.azulClaroFundo, [cite: 2652, 2703]
+      backgroundColor: PolifenoisTema.azulClaroFundo,
       body: Center(
         child: Container(
           width: 400,
@@ -71,18 +71,18 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.mark_email_read_outlined, size: 60, color: PolifenoisTema.azulPrimario), [cite: 3091]
+                  Icon(Icons.mark_email_read_outlined, size: 60, color: PolifenoisTema.azulPrimario),
                   SizedBox(height: 20),
-                  Text("Validar Cadastro", style: PolifenoisTema.tituloEstilo), [cite: 3093]
+                  Text("Validar Cadastro", style: PolifenoisTema.tituloEstilo),
                   SizedBox(height: 10),
                   Text("Digite o código de 6 dígitos enviado para você.",
-                    textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])), [cite: 3095]
+                    textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
                   SizedBox(height: 30),
                   TextField(
                     controller: _codigoController,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
-                    decoration: PolifenoisTema.inputDecoracao("Código", Icons.lock_clock), [cite: 3102]
+                    decoration: PolifenoisTema.inputDecoracao("Código", Icons.lock_clock),
                     keyboardType: TextInputType.number,
                   ),
                   SizedBox(height: 30),
@@ -91,7 +91,7 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
                   : ElevatedButton(
                       onPressed: _validarCodigo,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: PolifenoisTema.azulPrimario, [cite: 2751]
+                        backgroundColor: PolifenoisTema.azulPrimario,
                         foregroundColor: Colors.white,
                         minimumSize: Size(double.infinity, 55),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

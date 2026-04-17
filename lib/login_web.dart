@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tema_padrao_web.dart';
-import 'cadastro_usuario_web.dart'; 
+import 'cadastro_usuario_web.dart';
+import 'dashboard_admin_web.dart'; // NOVA IMPORTAÇÃO
 
 class LoginWeb extends StatefulWidget {
   @override
@@ -21,29 +22,50 @@ class _LoginWebState extends State<LoginWeb> {
     }
 
     setState(() => _loading = true);
+
     try {
       final response = await http.post(
         Uri.parse("https://polifenois-backend.onrender.com/login"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"cpf": _cpf.text.replaceAll(RegExp(r'\D'), ''), "senha": _senha.text}),
+        body: jsonEncode({
+          "cpf": _cpf.text.replaceAll(RegExp(r'\D'), ''),
+          "senha": _senha.text
+        }),
       );
-      
+
       final res = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        _msg("Sucesso", "Login realizado!");
+        // LÓGICA DE REDIRECIONAMENTO (MASTER VS PACIENTE)
+        String tipo = res['usuario']['tipo_usuario'];
+        
+        if (tipo == 'admin' || tipo == 'medico') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => DashboardAdminWeb(usuario: res['usuario'])),
+          );
+        } else {
+          _msg("Sucesso", "Bem-vinda, ${res['usuario']['nome']}! Área da paciente em construção.");
+        }
       } else {
         _msg("Erro", res['erro'] ?? "Falha no login.");
       }
     } catch (e) {
-      _msg("Erro", "Falha na conexão.");
+      _msg("Erro", "Falha na conexão. Verifique a internet ou o servidor.");
     } finally {
       setState(() => _loading = false);
     }
   }
 
   void _msg(String t, String m) {
-    showDialog(context: context, builder: (c) => AlertDialog(title: Text(t), content: Text(m)));
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(t, style: TextStyle(color: PolifenoisTema.azulPrimario)),
+        content: Text(m),
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text("OK"))]
+      )
+    );
   }
 
   @override
@@ -69,16 +91,18 @@ class _LoginWebState extends State<LoginWeb> {
                   SizedBox(height: 15),
                   TextField(controller: _senha, obscureText: true, decoration: PolifenoisTema.inputDecoracao("Senha", Icons.key)),
                   SizedBox(height: 30),
-                  _loading ? CircularProgressIndicator() : ElevatedButton(
-                    onPressed: _entrar,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PolifenoisTema.azulPrimario,
-                      foregroundColor: Colors.white,
-                      minimumSize: Size(double.infinity, 55),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: Text("ENTRAR", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
+                  _loading
+                      ? CircularProgressIndicator()
+                      : ElevatedButton(
+                          onPressed: _entrar,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: PolifenoisTema.azulPrimario,
+                            foregroundColor: Colors.white,
+                            minimumSize: Size(double.infinity, 55),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: Text("ENTRAR", style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
                   SizedBox(height: 20),
                   TextButton(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => CadastroUsuarioWeb())),

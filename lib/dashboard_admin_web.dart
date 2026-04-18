@@ -44,9 +44,27 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     }
   }
 
+  // --- NOVA FUNÇÃO: LIBERAR ACESSO MANUAL ---
+  Future<void> _validarManual(int id) async {
+    try {
+      final response = await http.post(
+        Uri.parse("https://polifenois-backend.onrender.com/validar-manual"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"id": id}),
+      );
+      if (response.statusCode == 200) {
+        _carregarPacientes(); // Recarrega a tabela imediatamente
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Acesso da paciente liberado com sucesso!"), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      print("Erro ao validar: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Tratamento seguro do nome para evitar Tela Vermelha
     String nomeUsuario = widget.usuario['nome'] ?? 'Administrador';
 
     return Scaffold(
@@ -136,7 +154,8 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                                         DataColumn(label: Text("CPF", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                         DataColumn(label: Text("E-mail", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                         DataColumn(label: Text("Sem. Gestação", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
-                                        DataColumn(label: Text("Status de Cadastro", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
+                                        DataColumn(label: Text("Status", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
+                                        DataColumn(label: Text("Ações", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))), // NOVA COLUNA
                                       ],
                                       rows: _pacientes.map((p) {
                                         bool validado = p['email_validado'] == true;
@@ -151,6 +170,20 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                                                 label: Text(validado ? "Verificado" : "Pendente", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                                                 backgroundColor: validado ? Colors.green.shade600 : Colors.orange.shade600,
                                               )
+                                            ),
+                                            // NOVA CÉLULA: BOTÃO OU ÍCONE
+                                            DataCell(
+                                              validado
+                                                ? Row(children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 5), Text("Liberado")])
+                                                : ElevatedButton.icon(
+                                                    icon: Icon(Icons.key, size: 16),
+                                                    label: Text("Liberar Acesso"),
+                                                    onPressed: () => _validarManual(p['id']),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: PolifenoisTema.azulPrimario,
+                                                      foregroundColor: Colors.white,
+                                                    ),
+                                                  )
                                             ),
                                           ]
                                         );

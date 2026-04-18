@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tema_padrao_web.dart';
 import 'cadastro_usuario_web.dart';
-import 'dashboard_admin_web.dart'; // NOVA IMPORTAÇÃO
+import 'dashboard_admin_web.dart'; 
 
 class LoginWeb extends StatefulWidget {
   @override
@@ -36,24 +36,26 @@ class _LoginWebState extends State<LoginWeb> {
       final res = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // LÓGICA DE REDIRECIONAMENTO (MASTER VS PACIENTE)
-        String tipo = res['usuario']['tipo_usuario'];
-        
+        // Trava de segurança: Se vier nulo, assume 'gestante'
+        String tipo = res['usuario']['tipo_usuario'] ?? 'gestante';
+
         if (tipo == 'admin' || tipo == 'medico') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => DashboardAdminWeb(usuario: res['usuario'])),
           );
         } else {
-          _msg("Sucesso", "Bem-vinda, ${res['usuario']['nome']}! Área da paciente em construção.");
+          _msg("Sucesso", "Bem-vinda, ${res['usuario']['nome'] ?? 'Paciente'}! Área da paciente em construção.");
         }
       } else {
-        _msg("Erro", res['erro'] ?? "Falha no login.");
+        _msg("Erro", res['erro'] ?? "Falha no login. Verifique seus dados.");
       }
     } catch (e) {
-      _msg("Erro", "Falha na conexão. Verifique a internet ou o servidor.");
+      _msg("Erro de Conexão", "Falha ao conectar com o servidor Render. Verifique sua internet.");
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -83,7 +85,7 @@ class _LoginWebState extends State<LoginWeb> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.lock_person, size: 60, color: PolifenoisTema.azulPrimario),
+                  Icon(Icons.local_hospital, size: 60, color: PolifenoisTema.azulPrimario),
                   SizedBox(height: 15),
                   Text("Acesso Polifenóis", style: PolifenoisTema.tituloEstilo),
                   SizedBox(height: 30),
@@ -92,7 +94,7 @@ class _LoginWebState extends State<LoginWeb> {
                   TextField(controller: _senha, obscureText: true, decoration: PolifenoisTema.inputDecoracao("Senha", Icons.key)),
                   SizedBox(height: 30),
                   _loading
-                      ? CircularProgressIndicator()
+                      ? CircularProgressIndicator(color: PolifenoisTema.azulPrimario)
                       : ElevatedButton(
                           onPressed: _entrar,
                           style: ElevatedButton.styleFrom(
@@ -101,12 +103,12 @@ class _LoginWebState extends State<LoginWeb> {
                             minimumSize: Size(double.infinity, 55),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          child: Text("ENTRAR", style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text("ENTRAR", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         ),
                   SizedBox(height: 20),
                   TextButton(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => CadastroUsuarioWeb())),
-                    child: Text("Não tem conta? Cadastre-se aqui", style: TextStyle(color: PolifenoisTema.azulPrimario)),
+                    child: Text("Não tem conta? Cadastre-se aqui", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
                   )
                 ],
               ),

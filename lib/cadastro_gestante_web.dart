@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tema_padrao_web.dart';
+import 'login_web.dart';
 
 class CadastroGestanteWeb extends StatefulWidget {
   final Map<String, dynamic> usuario;
-
   CadastroGestanteWeb({required this.usuario});
 
   @override
@@ -13,6 +13,7 @@ class CadastroGestanteWeb extends StatefulWidget {
 }
 
 class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
+  int _indiceMenu = 0; // 0 = Perfil, 1 = Refeições
   final _formKey = GlobalKey<FormState>();
   
   // Controladores
@@ -29,16 +30,15 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   final TextEditingController _crn = TextEditingController();
   final TextEditingController _telFixo = TextEditingController();
   final TextEditingController _celular = TextEditingController();
-  final TextEditingController _email = TextEditingController();
 
+  List<dynamic> _refeicoes = [];
+  bool _carregandoRefeicoes = false;
   bool _salvando = false;
 
   @override
   void initState() {
     super.initState();
-    // Preenchendo com os dados que já vieram do banco no login
     _celular.text = widget.usuario['telefone'] ?? '';
-    _email.text = widget.usuario['email'] ?? '';
     _nacionalidade.text = widget.usuario['nacionalidade'] ?? '';
     _natural.text = widget.usuario['naturalidade'] ?? '';
     _mae.text = widget.usuario['nome_mae'] ?? '';
@@ -53,30 +53,34 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     _comp.text = widget.usuario['complemento'] ?? '';
   }
 
-  // BUSCA DE CEP VIA API PÚBLICA (VIACEP)
   Future<void> _buscarCEP() async {
     String cepLimpo = _cep.text.replaceAll(RegExp(r'\D'), '');
     if (cepLimpo.length == 8) {
       final res = await http.get(Uri.parse("https://viacep.com.br/ws/$cepLimpo/json/"));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        if (data['erro'] == null) {
-          setState(() {
-            _rua.text = data['logradouro'] ?? '';
-          });
-        }
+        if (data['erro'] == null) setState(() => _rua.text = data['logradouro'] ?? '');
       }
     }
   }
 
-  // ENVIAR DADOS PARA O BACKEND
+  Future<void> _carregarRefeicoes() async {
+    setState(() => _carregandoRefeicoes = true);
+    try {
+      final res = await http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes-gestante/${widget.usuario['id']}"));
+      if (res.statusCode == 200) {
+        setState(() => _refeicoes = jsonDecode(res.body)['refeicoes']);
+      }
+    } finally {
+      setState(() => _carregandoRefeicoes = false);
+    }
+  }
+
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
-    
     setState(() => _salvando = true);
-
     try {
-      final response = await http.post(
+      final res = await http.post(
         Uri.parse("https://polifenois-backend.onrender.com/atualizar-perfil"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
@@ -96,20 +100,11 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
           "telefone": _celular.text,
         }),
       );
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Perfil atualizado com sucesso!"), backgroundColor: Colors.green)
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erro ao atualizar o perfil."), backgroundColor: Colors.red)
-        );
+      if (res.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Perfil salvo! Direcionando para dashboard..."), backgroundColor: Colors.green));
+        _carregarRefeicoes();
+        setState(() => _indiceMenu = 1); // Vai para a tela de refeições
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro de conexão com o servidor."), backgroundColor: Colors.red)
-      );
     } finally {
       setState(() => _salvando = false);
     }
@@ -119,127 +114,179 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PolifenoisTema.azulClaroFundo,
-      appBar: AppBar(
-        title: Text("Completar Perfil - Polifenóis", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
-        backgroundColor: PolifenoisTema.azulPrimario,
-        elevation: 0,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(32),
-          child: Container(
-            width: 800, // Largura controlada para não espalhar muito na tela web
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              child: Padding(
-                padding: const EdgeInsets.all(40.0),
-                child: Form(
-                  key: _formKey,
+      body: Row(
+        children: [
+          // MENU LATERAL (SIDEBAR)
+          Container(
+            width: 280,
+            color: Colors.white,
+            child: Column(
+              children: [
+                DrawerHeader(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Olá, ${widget.usuario['nome']}.", style: PolifenoisTema.tituloEstilo),
+                      Icon(Icons.person_pin, size: 50, color: PolifenoisTema.azulPrimario),
                       SizedBox(height: 10),
-                      Text("Por favor, complete seus dados de saúde e endereço.", style: PolifenoisTema.corpoEstilo),
-                      SizedBox(height: 30),
-                      
-                      // DADOS PESSOAIS
-                      Text("Dados Pessoais e Familiares", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: PolifenoisTema.azulPrimario)),
-                      Divider(),
-                      SizedBox(height: 15),
-                      Row(children: [
-                        Expanded(child: TextFormField(controller: _nacionalidade, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
-                        SizedBox(width: 15),
-                        Expanded(child: TextFormField(controller: _natural, decoration: PolifenoisTema.inputDecoracao("Naturalidade (Cidade onde nasceu)", Icons.location_city))),
-                      ]),
-                      SizedBox(height: 15),
-                      TextFormField(controller: _mae, decoration: PolifenoisTema.inputDecoracao("Nome da Mãe", Icons.woman)),
-                      SizedBox(height: 30),
-
-                      // ENDEREÇO
-                      Text("Endereço", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: PolifenoisTema.azulPrimario)),
-                      Divider(),
-                      SizedBox(height: 15),
-                      Row(children: [
-                        Expanded(child: TextFormField(
-                          controller: _cep, 
-                          decoration: PolifenoisTema.inputDecoracao("CEP", Icons.map),
-                          onChanged: (v) => _buscarCEP(), // Executa a busca ao digitar
-                        )),
-                        SizedBox(width: 15),
-                        Expanded(flex: 2, child: TextFormField(controller: _rua, decoration: PolifenoisTema.inputDecoracao("Endereço (Rua)", Icons.home))),
-                      ]),
-                      SizedBox(height: 15),
-                      Row(children: [
-                        Expanded(child: TextFormField(controller: _num, decoration: PolifenoisTema.inputDecoracao("Número", Icons.numbers))),
-                        SizedBox(width: 15),
-                        Expanded(child: TextFormField(controller: _comp, decoration: PolifenoisTema.inputDecoracao("Complemento", Icons.info))),
-                      ]),
-                      SizedBox(height: 30),
-
-                      // CONTATOS
-                      Text("Contatos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: PolifenoisTema.azulPrimario)),
-                      Divider(),
-                      SizedBox(height: 15),
-                      Row(children: [
-                        Expanded(child: TextFormField(
-                          controller: _celular, 
-                          decoration: PolifenoisTema.inputDecoracao("Telefone Celular *", Icons.phone_android),
-                          validator: (value) => value!.isEmpty ? "Campo obrigatório" : null,
-                        )),
-                        SizedBox(width: 15),
-                        Expanded(child: TextFormField(controller: _telFixo, decoration: PolifenoisTema.inputDecoracao("Telefone Fixo (Opcional)", Icons.phone))),
-                      ]),
-                      SizedBox(height: 15),
-                      TextFormField(
-                        controller: _email, 
-                        decoration: PolifenoisTema.inputDecoracao("E-mail *", Icons.email),
-                        validator: (value) {
-                          if (value!.isEmpty) return "Campo obrigatório";
-                          if (!value.contains("@")) return "E-mail inválido";
-                          return null;
-                        },
-                      ),
-                      SizedBox(height: 30),
-
-                      // DADOS CLÍNICOS
-                      Text("Acompanhamento Profissional (Opcional)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: PolifenoisTema.azulPrimario)),
-                      Divider(),
-                      SizedBox(height: 15),
-                      Row(children: [
-                        Expanded(child: TextFormField(controller: _medico, decoration: PolifenoisTema.inputDecoracao("Nome do Médico", Icons.medical_services))),
-                        SizedBox(width: 15),
-                        Expanded(child: TextFormField(controller: _crm, decoration: PolifenoisTema.inputDecoracao("CRM do Médico", Icons.badge))),
-                      ]),
-                      SizedBox(height: 15),
-                      Row(children: [
-                        Expanded(child: TextFormField(controller: _nutri, decoration: PolifenoisTema.inputDecoracao("Nome do Nutricionista", Icons.local_dining))),
-                        SizedBox(width: 15),
-                        Expanded(child: TextFormField(controller: _crn, decoration: PolifenoisTema.inputDecoracao("CRN do Nutricionista", Icons.badge))),
-                      ]),
-                      
-                      SizedBox(height: 40),
-                      
-                      // BOTÃO SALVAR
-                      _salvando 
-                      ? Center(child: CircularProgressIndicator(color: PolifenoisTema.azulPrimario))
-                      : ElevatedButton(
-                          onPressed: _salvar,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: PolifenoisTema.azulPrimario, 
-                            minimumSize: Size(double.infinity, 60),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
-                          ),
-                          child: Text("SALVAR DADOS DO PERFIL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                        )
+                      Text(widget.usuario['nome'] ?? 'Gestante', style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                      Text("ID: ${widget.usuario['id']}", style: TextStyle(fontSize: 10, color: Colors.grey)),
                     ],
                   ),
                 ),
-              ),
+                ListTile(
+                  leading: Icon(Icons.badge, color: _indiceMenu == 0 ? PolifenoisTema.azulPrimario : Colors.grey),
+                  title: Text("Dados Cadastrais", style: TextStyle(color: _indiceMenu == 0 ? PolifenoisTema.azulPrimario : Colors.black, fontWeight: _indiceMenu == 0 ? FontWeight.bold : FontWeight.normal)),
+                  onTap: () => setState(() => _indiceMenu = 0),
+                ),
+                ListTile(
+                  leading: Icon(Icons.restaurant, color: _indiceMenu == 1 ? PolifenoisTema.azulPrimario : Colors.grey),
+                  title: Text("Minhas Refeições", style: TextStyle(color: _indiceMenu == 1 ? PolifenoisTema.azulPrimario : Colors.black, fontWeight: _indiceMenu == 1 ? FontWeight.bold : FontWeight.normal)),
+                  onTap: () {
+                    _carregarRefeicoes();
+                    setState(() => _indiceMenu = 1);
+                  },
+                ),
+                Spacer(),
+                ListTile(
+                  leading: Icon(Icons.logout, color: Colors.red),
+                  title: Text("Sair", style: TextStyle(color: Colors.red)),
+                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => LoginWeb())),
+                ),
+                SizedBox(height: 20),
+              ],
+            ),
+          ),
+
+          // CONTEÚDO PRINCIPAL
+          Expanded(
+            child: _indiceMenu == 0 ? _buildFormulario() : _buildDashboardRefeicoes(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormulario() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(40),
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Meus Dados Cadastrais", style: PolifenoisTema.tituloEstilo),
+                SizedBox(height: 10),
+                Text("Complete seu perfil para um acompanhamento preciso.", style: PolifenoisTema.corpoEstilo),
+                Divider(height: 40),
+                
+                // Dados Fixos (Apenas Visualização)
+                Row(children: [
+                  Expanded(child: _campoInativo("CPF", widget.usuario['cpf'])),
+                  SizedBox(width: 15),
+                  Expanded(child: _campoInativo("E-mail", widget.usuario['email'])),
+                ]),
+                SizedBox(height: 20),
+
+                // Campos Editáveis
+                Row(children: [
+                  Expanded(child: TextFormField(controller: _nacionalidade, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
+                  SizedBox(width: 15),
+                  Expanded(child: TextFormField(controller: _natural, decoration: PolifenoisTema.inputDecoracao("Naturalidade", Icons.location_city))),
+                ]),
+                SizedBox(height: 15),
+                TextFormField(controller: _mae, decoration: PolifenoisTema.inputDecoracao("Nome da Mãe", Icons.woman)),
+                SizedBox(height: 30),
+
+                Text("Endereço Residencial", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                SizedBox(height: 15),
+                Row(children: [
+                  Expanded(child: TextFormField(controller: _cep, decoration: PolifenoisTema.inputDecoracao("CEP", Icons.map), onChanged: (v) => _buscarCEP())),
+                  SizedBox(width: 15),
+                  Expanded(flex: 2, child: TextFormField(controller: _rua, decoration: PolifenoisTema.inputDecoracao("Logradouro", Icons.home))),
+                ]),
+                SizedBox(height: 15),
+                Row(children: [
+                  Expanded(child: TextFormField(controller: _num, decoration: PolifenoisTema.inputDecoracao("Número", Icons.numbers))),
+                  SizedBox(width: 15),
+                  Expanded(child: TextFormField(controller: _comp, decoration: PolifenoisTema.inputDecoracao("Complemento", Icons.info))),
+                ]),
+                SizedBox(height: 40),
+
+                _salvando 
+                ? Center(child: CircularProgressIndicator()) 
+                : ElevatedButton(
+                    onPressed: _salvar,
+                    style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, minimumSize: Size(double.infinity, 60)),
+                    child: Text("SALVAR E IR PARA DASHBOARD", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+              ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDashboardRefeicoes() {
+    return Padding(
+      padding: EdgeInsets.all(40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Minhas Refeições", style: PolifenoisTema.tituloEstilo),
+          SizedBox(height: 10),
+          Text("Histórico de consumo de polifenóis registrado via App Mobile.", style: PolifenoisTema.corpoEstilo),
+          SizedBox(height: 30),
+          Expanded(
+            child: _carregandoRefeicoes 
+            ? Center(child: CircularProgressIndicator())
+            : _refeicoes.isEmpty 
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.no_meals, size: 80, color: Colors.grey[300]),
+                      SizedBox(height: 20),
+                      Text("Nenhuma refeição registrada até o momento.", style: TextStyle(color: Colors.grey, fontSize: 18)),
+                      Text("Use o aplicativo no seu celular para fotografar seu prato.", style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _refeicoes.length,
+                  itemBuilder: (context, i) {
+                    final r = _refeicoes[i];
+                    return Card(
+                      margin: EdgeInsets.only(bottom: 15),
+                      child: ListTile(
+                        leading: Icon(Icons.restaurant, color: PolifenoisTema.azulPrimario),
+                        title: Text("Refeição em ${r['data_hora_registro']}"),
+                        subtitle: Text("Total de Polifenóis: ${r['total_polifenois_refeicao']} mg"),
+                        trailing: Icon(Icons.chevron_right),
+                      ),
+                    );
+                  },
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _campoInativo(String label, String? valor) {
+    return Container(
+      padding: EdgeInsets.all(15),
+      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(valor ?? '-', style: TextStyle(fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }

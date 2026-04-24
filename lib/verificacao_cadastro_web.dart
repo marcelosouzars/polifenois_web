@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tema_padrao_web.dart';
+import 'login_web.dart'; // Import necessário para o redirecionamento
 
 class VerificacaoCadastroWeb extends StatefulWidget {
   final String email;
@@ -18,9 +19,7 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
   Future<void> _validarCodigo() async {
     setState(() => _carregando = true);
     try {
-      // URL real do seu backend no Render
       final url = Uri.parse("https://polifenois-backend.onrender.com/verificar-codigo");
-      
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
@@ -29,11 +28,10 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
           "codigo": _codigoController.text,
         }),
       );
-
       final result = jsonDecode(response.body);
 
       if (response.statusCode == 200 && result['sucesso']) {
-        _mostrarAlerta("Sucesso!", "Sua conta foi validada. Agora você pode fazer login.");
+        _mostrarAlertaComNavegacao("Sucesso!", "Sua conta foi validada com sucesso. Faça seu login para acessar a plataforma.");
       } else {
         _mostrarAlerta("Erro", result['erro'] ?? "Código inválido.");
       }
@@ -51,6 +49,31 @@ class _VerificacaoCadastroWebState extends State<VerificacaoCadastroWeb> {
         title: Text(t, style: TextStyle(color: PolifenoisTema.azulPrimario)),
         content: Text(m),
         actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text("OK"))],
+      ),
+    );
+  }
+
+  // Nova função que redireciona para o login após o sucesso
+  void _mostrarAlertaComNavegacao(String t, String m) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Obriga o usuário a clicar no botão
+      builder: (c) => AlertDialog(
+        title: Text(t, style: TextStyle(color: Colors.green)),
+        content: Text(m),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(c); // Fecha o alert
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => LoginWeb()),
+                (Route<dynamic> route) => false, // Limpa o histórico de navegação
+              );
+            },
+            child: Text("IR PARA LOGIN", style: TextStyle(fontWeight: FontWeight.bold)),
+          )
+        ],
       ),
     );
   }

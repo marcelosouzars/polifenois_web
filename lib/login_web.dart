@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'tema_padrao_web.dart';
 import 'cadastro_usuario_web.dart';
 import 'dashboard_admin_web.dart'; 
+import 'cadastro_gestante_web.dart'; // NOVO IMPORT
 
 class LoginWeb extends StatefulWidget {
   @override
@@ -45,7 +46,11 @@ class _LoginWebState extends State<LoginWeb> {
             MaterialPageRoute(builder: (context) => DashboardAdminWeb(usuario: res['usuario'])),
           );
         } else {
-          _msg("Sucesso", "Bem-vinda, ${res['usuario']['nome'] ?? 'Paciente'}! Área da paciente em construção.");
+          // REDIRECIONA PARA A NOVA TELA DE COMPLETAR PERFIL
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => CadastroGestanteWeb(usuario: res['usuario'])),
+          );
         }
       } else {
         _msg("Erro", res['erro'] ?? "Falha no login. Verifique seus dados.");

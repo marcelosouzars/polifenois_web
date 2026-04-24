@@ -44,18 +44,60 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     }
   }
 
-  // --- NOVA FUNÇÃO: LIBERAR ACESSO MANUAL ---
-  Future<void> _validarManual(int id) async {
+  // --- NOVA FUNÇÃO: POP-UP DE CONFIRMAÇÃO DE SENHA ---
+  void _confirmarLiberacao(int idPaciente) {
+    final TextEditingController _senhaAdminController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Confirmar Liberação", style: TextStyle(color: PolifenoisTema.azulPrimario)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("Para liberar o acesso desta paciente, digite sua senha de administrador:"),
+            SizedBox(height: 15),
+            TextField(
+              controller: _senhaAdminController,
+              obscureText: true,
+              decoration: PolifenoisTema.inputDecoracao("Sua Senha", Icons.lock),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+            onPressed: () => _executarLiberacao(idPaciente, _senhaAdminController.text),
+            child: Text("CONFIRMAR E LIBERAR", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- NOVA FUNÇÃO: EXECUTAR A LIBERAÇÃO ---
+  Future<void> _executarLiberacao(int idPaciente, String senha) async {
     try {
       final response = await http.post(
         Uri.parse("https://polifenois-backend.onrender.com/validar-manual"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"id": id}),
+        body: jsonEncode({
+          "id_paciente": idPaciente,
+          "id_admin": widget.usuario['id'], // Pega o ID do médico logado
+          "senha_admin": senha // Envia a senha digitada
+        }),
       );
+      
       if (response.statusCode == 200) {
-        _carregarPacientes(); // Recarrega a tabela imediatamente
+        Navigator.pop(context); // Fecha a popup
+        _carregarPacientes(); // Recarrega a tabela
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Acesso da paciente liberado com sucesso!"), backgroundColor: Colors.green),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro: Senha de administrador incorreta."), backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -155,7 +197,7 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                                         DataColumn(label: Text("E-mail", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                         DataColumn(label: Text("Sem. Gestação", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                         DataColumn(label: Text("Status", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
-                                        DataColumn(label: Text("Ações", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))), // NOVA COLUNA
+                                        DataColumn(label: Text("Ações", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                       ],
                                       rows: _pacientes.map((p) {
                                         bool validado = p['email_validado'] == true;
@@ -171,14 +213,14 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                                                 backgroundColor: validado ? Colors.green.shade600 : Colors.orange.shade600,
                                               )
                                             ),
-                                            // NOVA CÉLULA: BOTÃO OU ÍCONE
+                                            // COLUNA AÇÕES ALTERADA PARA CHAMAR A POPUP
                                             DataCell(
                                               validado
                                                 ? Row(children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 5), Text("Liberado")])
                                                 : ElevatedButton.icon(
                                                     icon: Icon(Icons.key, size: 16),
                                                     label: Text("Liberar Acesso"),
-                                                    onPressed: () => _validarManual(p['id']),
+                                                    onPressed: () => _confirmarLiberacao(p['id']),
                                                     style: ElevatedButton.styleFrom(
                                                       backgroundColor: PolifenoisTema.azulPrimario,
                                                       foregroundColor: Colors.white,

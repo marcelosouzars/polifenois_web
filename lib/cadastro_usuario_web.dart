@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'tema_padrao_web.dart'; // Importando o tema azul [cite: 2646]
-import 'VERIFICACAO_CADASTRO_WEB.DART'; // Importando a tela de verificação 
+import 'verificacao_cadastro_web.dart'; // Importando a tela de verificação 
 
 class CadastroUsuarioWeb extends StatefulWidget {
   @override

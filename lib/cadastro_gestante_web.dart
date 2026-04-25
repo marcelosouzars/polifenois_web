@@ -17,6 +17,10 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   final _formKey = GlobalKey<FormState>();
   
   // Controladores
+  final TextEditingController _dataNasc = TextEditingController();
+  final TextEditingController _semanas = TextEditingController();
+  final TextEditingController _telFixo = TextEditingController();
+  final TextEditingController _celular = TextEditingController();
   final TextEditingController _cep = TextEditingController();
   final TextEditingController _rua = TextEditingController();
   final TextEditingController _num = TextEditingController();
@@ -28,8 +32,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   final TextEditingController _crm = TextEditingController();
   final TextEditingController _nutri = TextEditingController();
   final TextEditingController _crn = TextEditingController();
-  final TextEditingController _telFixo = TextEditingController();
-  final TextEditingController _celular = TextEditingController();
 
   List<dynamic> _refeicoes = [];
   bool _carregandoRefeicoes = true;
@@ -39,7 +41,14 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   void initState() {
     super.initState();
     _carregarRefeicoes();
+    
+    // Carga inicial dos dados
+    _dataNasc.text = widget.usuario['data_nascimento'] != null 
+        ? widget.usuario['data_nascimento'].toString().split('T')[0] 
+        : '';
+    _semanas.text = widget.usuario['semana_gestacao']?.toString() ?? '';
     _celular.text = widget.usuario['telefone'] ?? '';
+    _telFixo.text = widget.usuario['telefone_fixo'] ?? '';
     _nacionalidade.text = widget.usuario['nacionalidade'] ?? '';
     _natural.text = widget.usuario['naturalidade'] ?? '';
     _mae.text = widget.usuario['nome_mae'] ?? '';
@@ -47,7 +56,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     _crm.text = widget.usuario['crm_medico'] ?? '';
     _nutri.text = widget.usuario['nome_nutricionista'] ?? '';
     _crn.text = widget.usuario['crn_nutricionista'] ?? '';
-    _telFixo.text = widget.usuario['telefone_fixo'] ?? '';
     _cep.text = widget.usuario['cep'] ?? '';
     _rua.text = widget.usuario['logradouro'] ?? '';
     _num.text = widget.usuario['numero'] ?? '';
@@ -86,6 +94,10 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "id": widget.usuario['id'],
+          "data_nascimento": _dataNasc.text,
+          "semana_gestacao": int.tryParse(_semanas.text) ?? 0,
+          "telefone": _celular.text,
+          "telefone_fixo": _telFixo.text,
           "nacionalidade": _nacionalidade.text,
           "naturalidade": _natural.text,
           "nome_mae": _mae.text,
@@ -93,16 +105,14 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
           "crm_medico": _crm.text,
           "nome_nutricionista": _nutri.text,
           "crn_nutricionista": _crn.text,
-          "telefone_fixo": _telFixo.text,
           "logradouro": _rua.text,
           "numero": _num.text,
           "complemento": _comp.text,
           "cep": _cep.text,
-          "telefone": _celular.text,
         }),
       );
       if (res.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Perfil salvo!"), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Dados atualizados!"), backgroundColor: Colors.green));
       }
     } finally {
       setState(() => _salvando = false);
@@ -115,7 +125,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
       backgroundColor: PolifenoisTema.azulClaroFundo,
       body: Row(
         children: [
-          // MENU LATERAL (SIDEBAR)
           Container(
             width: 280,
             color: Colors.white,
@@ -125,7 +134,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // VERIFICA SE TEM FOTO CADASTRADA, SE NÃO, MOSTRA O ÍCONE PADRÃO
                       widget.usuario['foto_perfil_url'] != null && widget.usuario['foto_perfil_url'].toString().isNotEmpty
                           ? CircleAvatar(
                               radius: 35,
@@ -133,10 +141,9 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                               backgroundColor: Colors.transparent,
                             )
                           : Icon(Icons.person_pin, size: 60, color: PolifenoisTema.azulPrimario),
-                      
                       SizedBox(height: 10),
                       Text(widget.usuario['nome'] ?? 'Gestante', style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
-                      Text("Semana: ${widget.usuario['semana_gestacao'] ?? '?'}", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text("Semana: ${_semanas.text}", style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ),
@@ -160,11 +167,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
               ],
             ),
           ),
-
-          // CONTEÚDO PRINCIPAL
-          Expanded(
-            child: _indiceMenu == 1 ? _buildDashboardRefeicoes() : _buildFormulario(),
-          ),
+          Expanded(child: _indiceMenu == 1 ? _buildDashboardRefeicoes() : _buildFormulario()),
         ],
       ),
     );
@@ -184,22 +187,10 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
             child: _carregandoRefeicoes 
               ? Center(child: CircularProgressIndicator()) 
               : _refeicoes.isEmpty 
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.no_meals, size: 80, color: Colors.grey[300]),
-                        SizedBox(height: 20),
-                        Text("Nenhuma refeição registrada até o momento.", style: TextStyle(color: Colors.grey, fontSize: 18)),
-                      ],
-                    ),
-                  )
+                ? Center(child: Text("Nenhuma refeição registrada.", style: TextStyle(color: Colors.grey, fontSize: 18)))
                 : GridView.builder(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: 0.8,
+                      crossAxisCount: 3, crossAxisSpacing: 20, mainAxisSpacing: 20, childAspectRatio: 0.8,
                     ),
                     itemCount: _refeicoes.length,
                     itemBuilder: (context, i) {
@@ -211,30 +202,15 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Image.network(
-                                r['foto_prato_url'] ?? 'https://via.placeholder.com/300',
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                            Expanded(child: Image.network(r['foto_prato_url'] ?? 'https://via.placeholder.com/300', fit: BoxFit.cover, width: double.infinity)),
                             Padding(
                               padding: EdgeInsets.all(12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(r['tipo_refeicao'] ?? 'REFEIÇÃO', style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
-                                  Text("Data: ${r['data_hora_registro']}", style: TextStyle(fontSize: 12)),
-                                  Divider(),
-                                  Text("Peso Total: ${r['peso_total_refeicao']}g"),
                                   Text("Polifenóis: ${r['total_polifenois_refeicao']}mg", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                                  SizedBox(height: 5),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.location_on, size: 14, color: Colors.grey),
-                                      Text("${r['latitude']}, ${r['longitude']}", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                    ],
-                                  )
+                                  Text("Data: ${r['data_hora_registro']}", style: TextStyle(fontSize: 11)),
                                 ],
                               ),
                             )
@@ -262,17 +238,28 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Meus Dados Cadastrais", style: PolifenoisTema.tituloEstilo),
-                SizedBox(height: 10),
-                Text("Complete seu perfil para um acompanhamento preciso.", style: PolifenoisTema.corpoEstilo),
                 Divider(height: 40),
                 
+                Text("Informações de Saúde", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                SizedBox(height: 15),
                 Row(children: [
-                  Expanded(child: _campoInativo("CPF", widget.usuario['cpf'])),
+                  Expanded(child: TextFormField(controller: _dataNasc, decoration: PolifenoisTema.inputDecoracao("Data de Nascimento (AAAA-MM-DD)", Icons.calendar_today))),
                   SizedBox(width: 15),
-                  Expanded(child: _campoInativo("E-mail", widget.usuario['email'])),
+                  Expanded(child: TextFormField(controller: _semanas, keyboardType: TextInputType.number, decoration: PolifenoisTema.inputDecoracao("Semana de Gestação", Icons.pregnant_woman))),
                 ]),
-                SizedBox(height: 20),
+                SizedBox(height: 30),
 
+                Text("Contatos", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                SizedBox(height: 15),
+                Row(children: [
+                  Expanded(child: TextFormField(controller: _celular, decoration: PolifenoisTema.inputDecoracao("Telefone Celular", Icons.phone_android))),
+                  SizedBox(width: 15),
+                  Expanded(child: TextFormField(controller: _telFixo, decoration: PolifenoisTema.inputDecoracao("Telefone Fixo", Icons.phone))),
+                ]),
+                SizedBox(height: 30),
+
+                Text("Dados Pessoais", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                SizedBox(height: 15),
                 Row(children: [
                   Expanded(child: TextFormField(controller: _nacionalidade, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
                   SizedBox(width: 15),
@@ -289,12 +276,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   SizedBox(width: 15),
                   Expanded(child: TextFormField(controller: _crm, decoration: PolifenoisTema.inputDecoracao("CRM", Icons.badge))),
                 ]),
-                SizedBox(height: 15),
-                Row(children: [
-                  Expanded(flex: 2, child: TextFormField(controller: _nutri, decoration: PolifenoisTema.inputDecoracao("Nome do Nutricionista", Icons.local_dining))),
-                  SizedBox(width: 15),
-                  Expanded(child: TextFormField(controller: _crn, decoration: PolifenoisTema.inputDecoracao("CRN", Icons.badge))),
-                ]),
                 SizedBox(height: 30),
 
                 Text("Endereço Residencial", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
@@ -303,12 +284,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   Expanded(child: TextFormField(controller: _cep, decoration: PolifenoisTema.inputDecoracao("CEP", Icons.map), onChanged: (v) => _buscarCEP())),
                   SizedBox(width: 15),
                   Expanded(flex: 2, child: TextFormField(controller: _rua, decoration: PolifenoisTema.inputDecoracao("Logradouro", Icons.home))),
-                ]),
-                SizedBox(height: 15),
-                Row(children: [
-                  Expanded(child: TextFormField(controller: _num, decoration: PolifenoisTema.inputDecoracao("Número", Icons.numbers))),
-                  SizedBox(width: 15),
-                  Expanded(child: TextFormField(controller: _comp, decoration: PolifenoisTema.inputDecoracao("Complemento", Icons.info))),
                 ]),
                 SizedBox(height: 40),
 
@@ -323,20 +298,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _campoInativo(String label, String? valor) {
-    return Container(
-      padding: EdgeInsets.all(15),
-      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey)),
-          Text(valor ?? '-', style: TextStyle(fontWeight: FontWeight.bold)),
-        ],
       ),
     );
   }

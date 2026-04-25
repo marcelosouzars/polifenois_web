@@ -125,7 +125,15 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.person_pin, size: 50, color: PolifenoisTema.azulPrimario),
+                      // VERIFICA SE TEM FOTO CADASTRADA, SE NÃO, MOSTRA O ÍCONE PADRÃO
+                      widget.usuario['foto_perfil_url'] != null && widget.usuario['foto_perfil_url'].toString().isNotEmpty
+                          ? CircleAvatar(
+                              radius: 35,
+                              backgroundImage: NetworkImage(widget.usuario['foto_perfil_url']),
+                              backgroundColor: Colors.transparent,
+                            )
+                          : Icon(Icons.person_pin, size: 60, color: PolifenoisTema.azulPrimario),
+                      
                       SizedBox(height: 10),
                       Text(widget.usuario['nome'] ?? 'Gestante', style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
                       Text("Semana: ${widget.usuario['semana_gestacao'] ?? '?'}", style: TextStyle(fontSize: 12, color: Colors.grey)),

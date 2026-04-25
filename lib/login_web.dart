@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tema_padrao_web.dart';
 import 'cadastro_usuario_web.dart';
-import 'dashboard_admin_web.dart'; 
-import 'cadastro_gestante_web.dart'; // NOVO IMPORT
+import 'dashboard_admin_web.dart';
+import 'cadastro_gestante_web.dart';
 
 class LoginWeb extends StatefulWidget {
   @override
@@ -21,9 +21,7 @@ class _LoginWebState extends State<LoginWeb> {
       _msg("Aviso", "Preencha CPF e Senha.");
       return;
     }
-
     setState(() => _loading = true);
-
     try {
       final response = await http.post(
         Uri.parse("https://polifenois-backend.onrender.com/login"),
@@ -33,89 +31,76 @@ class _LoginWebState extends State<LoginWeb> {
           "senha": _senha.text
         }),
       );
-
       final res = jsonDecode(response.body);
-
       if (response.statusCode == 200) {
-        // Trava de segurança: Se vier nulo, assume 'gestante'
         String tipo = res['usuario']['tipo_usuario'] ?? 'gestante';
-
         if (tipo == 'admin' || tipo == 'medico') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => DashboardAdminWeb(usuario: res['usuario'])),
-          );
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => DashboardAdminWeb(usuario: res['usuario'])));
         } else {
-          // REDIRECIONA PARA A NOVA TELA DE COMPLETAR PERFIL
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => CadastroGestanteWeb(usuario: res['usuario'])),
-          );
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CadastroGestanteWeb(usuario: res['usuario'])));
         }
       } else {
-        _msg("Erro", res['erro'] ?? "Falha no login. Verifique seus dados.");
+        _msg("Erro", res['erro'] ?? "Falha no login.");
       }
     } catch (e) {
-      _msg("Erro de Conexão", "Falha ao conectar com o servidor Render. Verifique sua internet.");
+      _msg("Erro", "Falha ao conectar com o servidor.");
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   void _msg(String t, String m) {
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(t, style: TextStyle(color: PolifenoisTema.azulPrimario)),
-        content: Text(m),
-        actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text("OK"))]
-      )
-    );
+    showDialog(context: context, builder: (c) => AlertDialog(title: Text(t), content: Text(m), actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text("OK"))]));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PolifenoisTema.azulClaroFundo,
-      body: Center(
-        child: Container(
-          width: 400,
-          child: Card(
-            elevation: 8,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.local_hospital, size: 60, color: PolifenoisTema.azulPrimario),
-                  SizedBox(height: 15),
-                  Text("Acesso Polifenóis", style: PolifenoisTema.tituloEstilo),
-                  SizedBox(height: 30),
-                  TextField(controller: _cpf, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge)),
-                  SizedBox(height: 15),
-                  TextField(controller: _senha, obscureText: true, decoration: PolifenoisTema.inputDecoracao("Senha", Icons.key)),
-                  SizedBox(height: 30),
-                  _loading
-                      ? CircularProgressIndicator(color: PolifenoisTema.azulPrimario)
-                      : ElevatedButton(
-                          onPressed: _entrar,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: PolifenoisTema.azulPrimario,
-                            foregroundColor: Colors.white,
-                            minimumSize: Size(double.infinity, 55),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          // ESPAÇO PARA O SEU MOSAICO - Se não tiver a imagem ainda, ele usa a cor padrão
+          color: PolifenoisTema.azulClaroFundo,
+          image: DecorationImage(
+            image: AssetImage("assets/mosaico.jpg"), // Nome sugerido para a sua imagem
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
+          ),
+        ),
+        child: Center(
+          child: Container(
+            width: 400,
+            child: Card(
+              elevation: 12,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.local_hospital, size: 60, color: PolifenoisTema.azulPrimario),
+                    SizedBox(height: 15),
+                    Text("Acesso Polifenóis", style: PolifenoisTema.tituloEstilo),
+                    SizedBox(height: 30),
+                    TextField(controller: _cpf, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge)),
+                    SizedBox(height: 15),
+                    TextField(controller: _senha, obscureText: true, decoration: PolifenoisTema.inputDecoracao("Senha", Icons.key)),
+                    SizedBox(height: 30),
+                    _loading
+                        ? CircularProgressIndicator(color: PolifenoisTema.azulPrimario)
+                        : ElevatedButton(
+                            onPressed: _entrar,
+                            style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, minimumSize: Size(double.infinity, 55)),
+                            child: Text("ENTRAR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           ),
-                          child: Text("ENTRAR", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ),
-                  SizedBox(height: 20),
-                  TextButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => CadastroUsuarioWeb())),
-                    child: Text("Não tem conta? Cadastre-se aqui", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
-                  )
-                ],
+                    SizedBox(height: 20),
+                    TextButton(
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => CadastroUsuarioWeb())),
+                      child: Text("Cadastre-se aqui", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
+                    )
+                  ],
+                ),
               ),
             ),
           ),

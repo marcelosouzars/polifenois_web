@@ -13,7 +13,7 @@ class CadastroGestanteWeb extends StatefulWidget {
 }
 
 class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
-  int _indiceMenu = 0; // 0 = Perfil, 1 = Refeições
+  int _indiceMenu = 1; // 1 = Dashboard (Refeições), 0 = Perfil
   final _formKey = GlobalKey<FormState>();
   
   // Controladores
@@ -32,12 +32,13 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   final TextEditingController _celular = TextEditingController();
 
   List<dynamic> _refeicoes = [];
-  bool _carregandoRefeicoes = false;
+  bool _carregandoRefeicoes = true;
   bool _salvando = false;
 
   @override
   void initState() {
     super.initState();
+    _carregarRefeicoes();
     _celular.text = widget.usuario['telefone'] ?? '';
     _nacionalidade.text = widget.usuario['nacionalidade'] ?? '';
     _natural.text = widget.usuario['naturalidade'] ?? '';
@@ -101,9 +102,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
         }),
       );
       if (res.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Perfil salvo! Direcionando para dashboard..."), backgroundColor: Colors.green));
-        _carregarRefeicoes();
-        setState(() => _indiceMenu = 1); // Vai para a tela de refeições
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Perfil salvo!"), backgroundColor: Colors.green));
       }
     } finally {
       setState(() => _salvando = false);
@@ -129,22 +128,19 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                       Icon(Icons.person_pin, size: 50, color: PolifenoisTema.azulPrimario),
                       SizedBox(height: 10),
                       Text(widget.usuario['nome'] ?? 'Gestante', style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
-                      Text("ID: ${widget.usuario['id']}", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      Text("Semana: ${widget.usuario['semana_gestacao'] ?? '?'}", style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
+                ),
+                ListTile(
+                  leading: Icon(Icons.dashboard, color: _indiceMenu == 1 ? PolifenoisTema.azulPrimario : Colors.grey),
+                  title: Text("Dashboard", style: TextStyle(color: _indiceMenu == 1 ? PolifenoisTema.azulPrimario : Colors.black, fontWeight: _indiceMenu == 1 ? FontWeight.bold : FontWeight.normal)),
+                  onTap: () => setState(() => _indiceMenu = 1),
                 ),
                 ListTile(
                   leading: Icon(Icons.badge, color: _indiceMenu == 0 ? PolifenoisTema.azulPrimario : Colors.grey),
                   title: Text("Dados Cadastrais", style: TextStyle(color: _indiceMenu == 0 ? PolifenoisTema.azulPrimario : Colors.black, fontWeight: _indiceMenu == 0 ? FontWeight.bold : FontWeight.normal)),
                   onTap: () => setState(() => _indiceMenu = 0),
-                ),
-                ListTile(
-                  leading: Icon(Icons.restaurant, color: _indiceMenu == 1 ? PolifenoisTema.azulPrimario : Colors.grey),
-                  title: Text("Minhas Refeições", style: TextStyle(color: _indiceMenu == 1 ? PolifenoisTema.azulPrimario : Colors.black, fontWeight: _indiceMenu == 1 ? FontWeight.bold : FontWeight.normal)),
-                  onTap: () {
-                    _carregarRefeicoes();
-                    setState(() => _indiceMenu = 1);
-                  },
                 ),
                 Spacer(),
                 ListTile(
@@ -159,8 +155,87 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
 
           // CONTEÚDO PRINCIPAL
           Expanded(
-            child: _indiceMenu == 0 ? _buildFormulario() : _buildDashboardRefeicoes(),
+            child: _indiceMenu == 1 ? _buildDashboardRefeicoes() : _buildFormulario(),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardRefeicoes() {
+    return Padding(
+      padding: EdgeInsets.all(40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Minhas Refeições", style: PolifenoisTema.tituloEstilo),
+          SizedBox(height: 10),
+          Text("Histórico de consumo registrado via App Mobile.", style: PolifenoisTema.corpoEstilo),
+          SizedBox(height: 30),
+          Expanded(
+            child: _carregandoRefeicoes 
+              ? Center(child: CircularProgressIndicator()) 
+              : _refeicoes.isEmpty 
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.no_meals, size: 80, color: Colors.grey[300]),
+                        SizedBox(height: 20),
+                        Text("Nenhuma refeição registrada até o momento.", style: TextStyle(color: Colors.grey, fontSize: 18)),
+                      ],
+                    ),
+                  )
+                : GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 20,
+                      mainAxisSpacing: 20,
+                      childAspectRatio: 0.8,
+                    ),
+                    itemCount: _refeicoes.length,
+                    itemBuilder: (context, i) {
+                      final r = _refeicoes[i];
+                      return Card(
+                        clipBehavior: Clip.antiAlias,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        elevation: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Image.network(
+                                r['foto_prato_url'] ?? 'https://via.placeholder.com/300',
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(r['tipo_refeicao'] ?? 'REFEIÇÃO', style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                                  Text("Data: ${r['data_hora_registro']}", style: TextStyle(fontSize: 12)),
+                                  Divider(),
+                                  Text("Peso Total: ${r['peso_total_refeicao']}g"),
+                                  Text("Polifenóis: ${r['total_polifenois_refeicao']}mg", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                  SizedBox(height: 5),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.location_on, size: 14, color: Colors.grey),
+                                      Text("${r['latitude']}, ${r['longitude']}", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                    ],
+                                  )
+                                ],
+                              ),
+                            )
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          )
         ],
       ),
     );
@@ -183,7 +258,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                 Text("Complete seu perfil para um acompanhamento preciso.", style: PolifenoisTema.corpoEstilo),
                 Divider(height: 40),
                 
-                // Dados Fixos (Apenas Visualização)
                 Row(children: [
                   Expanded(child: _campoInativo("CPF", widget.usuario['cpf'])),
                   SizedBox(width: 15),
@@ -191,7 +265,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                 ]),
                 SizedBox(height: 20),
 
-                // Campos Editáveis
                 Row(children: [
                   Expanded(child: TextFormField(controller: _nacionalidade, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
                   SizedBox(width: 15),
@@ -199,6 +272,21 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                 ]),
                 SizedBox(height: 15),
                 TextFormField(controller: _mae, decoration: PolifenoisTema.inputDecoracao("Nome da Mãe", Icons.woman)),
+                SizedBox(height: 30),
+
+                Text("Equipe Médica", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                SizedBox(height: 15),
+                Row(children: [
+                  Expanded(flex: 2, child: TextFormField(controller: _medico, decoration: PolifenoisTema.inputDecoracao("Nome do Médico", Icons.medical_services))),
+                  SizedBox(width: 15),
+                  Expanded(child: TextFormField(controller: _crm, decoration: PolifenoisTema.inputDecoracao("CRM", Icons.badge))),
+                ]),
+                SizedBox(height: 15),
+                Row(children: [
+                  Expanded(flex: 2, child: TextFormField(controller: _nutri, decoration: PolifenoisTema.inputDecoracao("Nome do Nutricionista", Icons.local_dining))),
+                  SizedBox(width: 15),
+                  Expanded(child: TextFormField(controller: _crn, decoration: PolifenoisTema.inputDecoracao("CRN", Icons.badge))),
+                ]),
                 SizedBox(height: 30),
 
                 Text("Endereço Residencial", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
@@ -221,58 +309,12 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                 : ElevatedButton(
                     onPressed: _salvar,
                     style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, minimumSize: Size(double.infinity, 60)),
-                    child: Text("SALVAR E IR PARA DASHBOARD", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: Text("SALVAR PERFIL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildDashboardRefeicoes() {
-    return Padding(
-      padding: EdgeInsets.all(40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Minhas Refeições", style: PolifenoisTema.tituloEstilo),
-          SizedBox(height: 10),
-          Text("Histórico de consumo de polifenóis registrado via App Mobile.", style: PolifenoisTema.corpoEstilo),
-          SizedBox(height: 30),
-          Expanded(
-            child: _carregandoRefeicoes 
-            ? Center(child: CircularProgressIndicator())
-            : _refeicoes.isEmpty 
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.no_meals, size: 80, color: Colors.grey[300]),
-                      SizedBox(height: 20),
-                      Text("Nenhuma refeição registrada até o momento.", style: TextStyle(color: Colors.grey, fontSize: 18)),
-                      Text("Use o aplicativo no seu celular para fotografar seu prato.", style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: _refeicoes.length,
-                  itemBuilder: (context, i) {
-                    final r = _refeicoes[i];
-                    return Card(
-                      margin: EdgeInsets.only(bottom: 15),
-                      child: ListTile(
-                        leading: Icon(Icons.restaurant, color: PolifenoisTema.azulPrimario),
-                        title: Text("Refeição em ${r['data_hora_registro']}"),
-                        subtitle: Text("Total de Polifenóis: ${r['total_polifenois_refeicao']} mg"),
-                        trailing: Icon(Icons.chevron_right),
-                      ),
-                    );
-                  },
-                ),
-          ),
-        ],
       ),
     );
   }

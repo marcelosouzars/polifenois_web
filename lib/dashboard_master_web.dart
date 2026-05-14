@@ -27,7 +27,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     try {
       final response = await http.get(
         Uri.parse("https://polifenois-backend.onrender.com/dashboard-master-stats"),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         setState(() {
@@ -42,7 +42,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     } catch (e) {
       print("Erro ao conectar: $e");
       setState(() => _carregando = false);
-      _mostrarErro("Falha na conexão com o banco de dados. Verifique sua internet.");
+      _mostrarErro("Falha na conexão. Verifique sua internet ou o servidor.");
     }
   }
 
@@ -50,6 +50,12 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
     );
+  }
+
+  // FUNÇÃO DE APOIO: Garante que o valor vire String sem quebrar o app
+  String _v(dynamic valor) {
+    if (valor == null) return "0";
+    return valor.toString();
   }
 
   @override
@@ -71,7 +77,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       Icon(Icons.admin_panel_settings, size: 60, color: Colors.white),
                       SizedBox(height: 10),
                       Text("PAINEL MASTER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      Text(widget.usuario['nome'], style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      Text(widget.usuario['nome'] ?? 'Master', style: TextStyle(color: Colors.white70, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -128,9 +134,9 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     Wrap(
                       spacing: 20, runSpacing: 20,
                       children: [
-                        _cardKPI("TOTAL GESTANTES", _stats?['total_gestantes']?.toString() ?? '0', Icons.pregnant_woman, Colors.blue),
-                        _cardKPI("IDADE MÉDIA", "${_stats?['gestacional']?['idade_media'] ?? '0'} anos", Icons.cake, Colors.orange),
-                        _cardKPI("SEM REGISTRO", _stats?['engajamento']?['sem_refeicoes']?.toString() ?? '0', Icons.no_meals, Colors.red),
+                        _cardKPI("TOTAL GESTANTES", _v(_stats?['total_gestantes']), Icons.pregnant_woman, Colors.blue),
+                        _cardKPI("IDADE MÉDIA", "${_v(_stats?['gestacional']?['idade_media'])} anos", Icons.cake, Colors.orange),
+                        _cardKPI("SEM REGISTRO", _v(_stats?['engajamento']?['sem_refeicoes']), Icons.no_meals, Colors.red),
                       ],
                     ),
                     
@@ -142,10 +148,10 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     Wrap(
                       spacing: 20, runSpacing: 20,
                       children: [
-                        _cardKPI("COM MÉDICO", _stats?['saude']?['com_medico']?.toString() ?? '0', Icons.medical_services, Colors.green),
-                        _cardKPI("SEM MÉDICO", _stats?['saude']?['sem_medico']?.toString() ?? '0', Icons.warning_amber_rounded, Colors.redAccent),
-                        _cardKPI("COM NUTRICIONISTA", _stats?['saude']?['com_nutri']?.toString() ?? '0', Icons.local_dining, Colors.green),
-                        _cardKPI("SEM NUTRICIONISTA", _stats?['saude']?['sem_nutri']?.toString() ?? '0', Icons.warning_amber_rounded, Colors.redAccent),
+                        _cardKPI("COM MÉDICO", _v(_stats?['saude']?['com_medico']), Icons.medical_services, Colors.green),
+                        _cardKPI("SEM MÉDICO", _v(_stats?['saude']?['sem_medico']), Icons.warning_amber_rounded, Colors.redAccent),
+                        _cardKPI("COM NUTRICIONISTA", _v(_stats?['saude']?['com_nutri']), Icons.local_dining, Colors.green),
+                        _cardKPI("SEM NUTRICIONISTA", _v(_stats?['saude']?['sem_nutri']), Icons.warning_amber_rounded, Colors.redAccent),
                       ],
                     ),
 
@@ -157,9 +163,9 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     Wrap(
                       spacing: 20, runSpacing: 20,
                       children: [
-                        _cardTrimestre("1º Trimestre", "Até 13 sem", _stats?['gestacional']?['trimestre1']?.toString() ?? '0', Colors.teal),
-                        _cardTrimestre("2º Trimestre", "14 a 26 sem", _stats?['gestacional']?['trimestre2']?.toString() ?? '0', Colors.indigo),
-                        _cardTrimestre("3º Trimestre", "27 sem +", _stats?['gestacional']?['trimestre3']?.toString() ?? '0', Colors.purple),
+                        _cardTrimestre("1º Trimestre", "Até 13 sem", _v(_stats?['gestacional']?['trimestre1']), Colors.teal),
+                        _cardTrimestre("2º Trimestre", "14 a 26 sem", _v(_stats?['gestacional']?['trimestre2']), Colors.indigo),
+                        _cardTrimestre("3º Trimestre", "27 sem +", _v(_stats?['gestacional']?['trimestre3']), Colors.purple),
                       ],
                     ),
                   ],

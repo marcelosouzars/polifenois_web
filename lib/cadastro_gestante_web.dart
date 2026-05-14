@@ -18,7 +18,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   final _formKey = GlobalKey<FormState>();
   
   // ===========================================================================
-  // CONTROLADORES SOBERANOS DO MARCELO (MANTIDOS 100%)
+  // CONTROLADORES SOBERANOS DO MARCELO
   // ===========================================================================
   final TextEditingController _nome = TextEditingController();
   final TextEditingController _rg = TextEditingController();
@@ -86,7 +86,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   }
 
   // ===========================================================================
-  // NOVAS FUNÇÕES DE GESTÃO REAL (ADICIONAR, EXCLUIR, EDITAR)
+  // LÓGICA DE GESTÃO DE FOTOS E REFEIÇÕES
   // ===========================================================================
 
   void _abrirDetalhesRefeicao(Map<String, dynamic> refeicao) {
@@ -112,18 +112,21 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                 children: [
                   Stack(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: refeicao['foto_prato_url'] != null && refeicao['foto_prato_url'].length > 500
-                          ? Image.memory(base64Decode(refeicao['foto_prato_url']), height: 300, width: double.infinity, fit: BoxFit.cover)
-                          : Image.network(refeicao['foto_prato_url'] ?? '', height: 300, width: double.infinity, fit: BoxFit.cover),
+                      GestureDetector(
+                        onTap: () => _modalOpcoesFoto(refeicao['id'], setModalState),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: refeicao['foto_prato_url'] != null && refeicao['foto_prato_url'].length > 500
+                            ? Image.memory(base64Decode(refeicao['foto_prato_url']), height: 300, width: double.infinity, fit: BoxFit.cover)
+                            : Image.network(refeicao['foto_prato_url'] ?? '', height: 300, width: double.infinity, fit: BoxFit.cover),
+                        ),
                       ),
                       Positioned(
                         bottom: 10, right: 10,
                         child: FloatingActionButton.small(
                           backgroundColor: Colors.orange,
                           child: Icon(Icons.camera_alt, color: Colors.white),
-                          onPressed: () => _avisoIA(),
+                          onPressed: () => _modalOpcoesFoto(refeicao['id'], setModalState),
                         ),
                       ),
                     ],
@@ -175,11 +178,98 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
   }
 
-  // --- SUB-MODAL PARA ADICIONAR NOVO ITEM ---
+  // --- NOVA FUNÇÃO: MODAL DE OPÇÕES DA FOTO ---
+  void _modalOpcoesFoto(String refeicaoId, StateSetter modalRefresh) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Foto da Refeição"),
+        content: Text("O que você deseja fazer com a imagem desta refeição?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR")),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final confirm = await _confirmar("Excluir Foto?", "Realmente deseja remover a foto desta refeição?");
+              if (confirm) {
+                await _atualizarFotoNoBanco(refeicaoId, "", modalRefresh);
+              }
+            }, 
+            child: Text("EXCLUIR FOTO", style: TextStyle(color: Colors.red))
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _selecionarEConfirmarFoto(refeicaoId, modalRefresh);
+            }, 
+            child: Text("ALTERAR FOTO")
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- NOVA FUNÇÃO: EXPLORER + SELEÇÃO + 3 BOTÕES ---
+  void _selecionarEConfirmarFoto(String refeicaoId, StateSetter modalRefresh) async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'png', 'jpeg'],
+    );
+
+    if (result != null) {
+      String base64Foto = base64Encode(result.files.first.bytes!);
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text("Confirmar Substituição"),
+          content: Text("A foto foi selecionada. Como deseja salvar?"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR")),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
+              onPressed: () async {
+                Navigator.pop(context);
+                await _atualizarFotoNoBanco(refeicaoId, base64Foto, modalRefresh);
+              }, 
+              child: Text("SALVAR (SEM IA)")
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () async {
+                Navigator.pop(context);
+                await _atualizarFotoNoBanco(refeicaoId, base64Foto, modalRefresh);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Análise de IA estará disponível em BREVE! Foto salva.")));
+              }, 
+              child: Text("SALVAR COM IA")
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _atualizarFotoNoBanco(String id, String base64, StateSetter modalRefresh) async {
+    try {
+      final res = await http.put(
+        Uri.parse("https://polifenois-backend.onrender.com/refeicao-foto/$id"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"foto_base64": base64}),
+      );
+      if (res.statusCode == 200) {
+        modalRefresh(() {}); // Atualiza o modal
+        _carregarRefeicoes(); // Atualiza o dashboard
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Foto atualizada com sucesso!"), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      print("Erro ao atualizar foto: $e");
+    }
+  }
+
+  // --- RESTANTE DAS FUNÇÕES (ADICIONAR/EXCLUIR ITENS) ---
   void _modalNovoItem(String refeicaoId, StateSetter modalRefresh) {
     TextEditingController _itNome = TextEditingController();
     TextEditingController _itPeso = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -187,7 +277,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _itNome, decoration: InputDecoration(labelText: "Nome do Alimento (ex: Arroz)")),
+            TextField(controller: _itNome, decoration: InputDecoration(labelText: "Nome do Alimento")),
             TextField(controller: _itPeso, decoration: InputDecoration(labelText: "Peso em Gramas"), keyboardType: TextInputType.number),
           ],
         ),
@@ -202,12 +292,12 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   "refeicao_id": refeicaoId,
                   "nome_alimento": _itNome.text,
                   "peso_gramas": int.parse(_itPeso.text),
-                  "polifenois_100g": 5.0 // Valor padrão fixo por enquanto
+                  "polifenois_100g": 5.0
                 }),
               );
               Navigator.pop(context);
-              modalRefresh(() {}); // Atualiza o modal de detalhes
-              _carregarRefeicoes(); // Atualiza o dashboard ao fundo
+              modalRefresh(() {});
+              _carregarRefeicoes();
             }, 
             child: Text("ADICIONAR")
           ),
@@ -231,10 +321,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     _carregarRefeicoes();
   }
 
-  void _avisoIA() {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Reanálise automática via IA disponível em breve!")));
-  }
-
   Future<bool> _confirmar(String titulo, String msg) async {
     return await showDialog(
       context: context,
@@ -249,7 +335,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   }
 
   // ===========================================================================
-  // INTERFACE PRINCIPAL (SIDEBAR + GRID)
+  // INTERFACE PRINCIPAL
   // ===========================================================================
 
   @override
@@ -270,7 +356,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                       Icon(Icons.person_pin, size: 60, color: PolifenoisTema.azulPrimario),
                       SizedBox(height: 10),
                       Text(_nome.text, style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
-                      Text("Semana: ${_semanas.text}", style: TextStyle(fontSize: 12)),
                     ],
                   ),
                 ),
@@ -307,8 +392,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("Minhas Refeições", style: PolifenoisTema.tituloEstilo),
-          SizedBox(height: 10),
-          Text("Clique na foto para gerenciar itens ou excluir a refeição.", style: TextStyle(color: Colors.blueGrey, fontStyle: FontStyle.italic)),
           SizedBox(height: 30),
           Expanded(
             child: _carregandoRefeicoes 
@@ -370,7 +453,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
   }
 
-  // --- SEU FORMULÁRIO DE PERFIL COMPLETO (MANTIDO 100%) ---
+  // --- SEU FORMULÁRIO DE PERFIL COMPLETO (MANTIDO) ---
   Widget _buildFormulario() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(40),
@@ -403,14 +486,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   Expanded(child: TextFormField(controller: _dataNasc, decoration: PolifenoisTema.inputDecoracao("Nascimento", Icons.calendar_today))),
                   SizedBox(width: 15),
                   Expanded(child: TextFormField(controller: _semanas, keyboardType: TextInputType.number, decoration: PolifenoisTema.inputDecoracao("Semana", Icons.pregnant_woman))),
-                ]),
-                SizedBox(height: 30),
-                Text("Equipe Médica", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
-                SizedBox(height: 15),
-                Row(children: [
-                  Expanded(flex: 2, child: TextFormField(controller: _medico, decoration: PolifenoisTema.inputDecoracao("Médico", Icons.medical_services))),
-                  SizedBox(width: 15),
-                  Expanded(child: TextFormField(controller: _crm, decoration: PolifenoisTema.inputDecoracao("CRM", Icons.badge))),
                 ]),
                 SizedBox(height: 40),
                 _salvando ? Center(child: CircularProgressIndicator()) : ElevatedButton(

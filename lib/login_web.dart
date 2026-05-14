@@ -5,6 +5,7 @@ import 'tema_padrao_web.dart';
 import 'cadastro_usuario_web.dart';
 import 'dashboard_admin_web.dart';
 import 'cadastro_gestante_web.dart';
+import 'dashboard_master_web.dart'; // Import do novo Dashboard Master
 
 class LoginWeb extends StatefulWidget {
   @override
@@ -32,12 +33,26 @@ class _LoginWebState extends State<LoginWeb> {
         }),
       );
       final res = jsonDecode(response.body);
+      
       if (response.statusCode == 200) {
         String tipo = res['usuario']['tipo_usuario'] ?? 'gestante';
-        if (tipo == 'admin' || tipo == 'medico') {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => DashboardAdminWeb(usuario: res['usuario'])));
+        
+        // --- NOVA LÓGICA DE ROTEAMENTO SÓCIO MARCELO ---
+        if (tipo == 'master') {
+          Navigator.pushReplacement(
+            context, 
+            MaterialPageRoute(builder: (context) => DashboardMasterWeb(usuario: res['usuario']))
+          );
+        } else if (tipo == 'admin' || tipo == 'medico') {
+          Navigator.pushReplacement(
+            context, 
+            MaterialPageRoute(builder: (context) => DashboardAdminWeb(usuario: res['usuario']))
+          );
         } else {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CadastroGestanteWeb(usuario: res['usuario'])));
+          Navigator.pushReplacement(
+            context, 
+            MaterialPageRoute(builder: (context) => CadastroGestanteWeb(usuario: res['usuario']))
+          );
         }
       } else {
         _msg("Erro", res['erro'] ?? "Falha no login.");
@@ -50,7 +65,14 @@ class _LoginWebState extends State<LoginWeb> {
   }
 
   void _msg(String t, String m) {
-    showDialog(context: context, builder: (c) => AlertDialog(title: Text(t), content: Text(m), actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text("OK"))]));
+    showDialog(
+      context: context, 
+      builder: (c) => AlertDialog(
+        title: Text(t), 
+        content: Text(m), 
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text("OK"))]
+      )
+    );
   }
 
   @override
@@ -60,10 +82,9 @@ class _LoginWebState extends State<LoginWeb> {
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
-          // ESPAÇO PARA O SEU MOSAICO - Se não tiver a imagem ainda, ele usa a cor padrão
           color: PolifenoisTema.azulClaroFundo,
           image: DecorationImage(
-            image: AssetImage("assets/mosaico.jpg"), // Nome sugerido para a sua imagem
+            image: AssetImage("assets/mosaico.jpg"), 
             fit: BoxFit.cover,
             colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.3), BlendMode.darken),
           ),

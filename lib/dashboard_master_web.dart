@@ -25,15 +25,31 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   Future<void> _buscarEstatisticas() async {
     setState(() => _carregando = true);
     try {
-      final res = await http.get(Uri.parse("https://polifenois-backend.onrender.com/dashboard-master-stats"));
-      if (res.statusCode == 200) {
-        setState(() => _stats = jsonDecode(res.body));
+      final response = await http.get(
+        Uri.parse("https://polifenois-backend.onrender.com/dashboard-master-stats"),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _stats = jsonDecode(response.body);
+          _carregando = false;
+        });
+      } else {
+        print("Erro no servidor: ${response.statusCode}");
+        setState(() => _carregando = false);
+        _mostrarErro("O servidor retornou um erro ao buscar as estatísticas.");
       }
     } catch (e) {
-      print("Erro ao buscar KPIs: $e");
-    } finally {
+      print("Erro ao conectar: $e");
       setState(() => _carregando = false);
+      _mostrarErro("Falha na conexão com o banco de dados. Verifique sua internet.");
     }
+  }
+
+  void _mostrarErro(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
+    );
   }
 
   @override
@@ -45,7 +61,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           // SIDEBAR DO MASTER
           Container(
             width: 280,
-            color: Color(0xFF1A237E), // Azul mais escuro para o Master
+            color: Color(0xFF1A237E),
             child: Column(
               children: [
                 DrawerHeader(
@@ -62,7 +78,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                 ListTile(
                   leading: Icon(Icons.analytics, color: Colors.white),
                   title: Text("Estatísticas Gerais", style: TextStyle(color: Colors.white)),
-                  onTap: () {},
+                  onTap: () => _buscarEstatisticas(),
                 ),
                 ListTile(
                   leading: Icon(Icons.people, color: Colors.white70),
@@ -83,7 +99,14 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           // CONTEÚDO PRINCIPAL
           Expanded(
             child: _carregando 
-            ? Center(child: CircularProgressIndicator()) 
+            ? Center(child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF1A237E)),
+                  SizedBox(height: 20),
+                  Text("Calculando estatísticas...", style: TextStyle(color: Colors.grey[600]))
+                ],
+              )) 
             : SingleChildScrollView(
                 padding: EdgeInsets.all(40),
                 child: Column(
@@ -93,7 +116,10 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text("Monitoramento Estratégico", style: PolifenoisTema.tituloEstilo),
-                        IconButton(icon: Icon(Icons.refresh), onPressed: _buscarEstatisticas),
+                        IconButton(
+                          icon: Icon(Icons.refresh, color: Color(0xFF1A237E)), 
+                          onPressed: _buscarEstatisticas
+                        ),
                       ],
                     ),
                     SizedBox(height: 30),
@@ -103,13 +129,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       spacing: 20, runSpacing: 20,
                       children: [
                         _cardKPI("TOTAL GESTANTES", _stats?['total_gestantes']?.toString() ?? '0', Icons.pregnant_woman, Colors.blue),
-                        _cardKPI("IDADE MÉDIA", "${_stats?['gestacional']?['idade_media']} anos", Icons.cake, Colors.orange),
+                        _cardKPI("IDADE MÉDIA", "${_stats?['gestacional']?['idade_media'] ?? '0'} anos", Icons.cake, Colors.orange),
                         _cardKPI("SEM REGISTRO", _stats?['engajamento']?['sem_refeicoes']?.toString() ?? '0', Icons.no_meals, Colors.red),
                       ],
                     ),
                     
                     SizedBox(height: 40),
-                    Text("Acompanhamento Clínico", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("Acompanhamento Clínico", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[800])),
                     SizedBox(height: 20),
                     
                     // LINHA 2: MÉDICOS E NUTRIS
@@ -117,14 +143,14 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       spacing: 20, runSpacing: 20,
                       children: [
                         _cardKPI("COM MÉDICO", _stats?['saude']?['com_medico']?.toString() ?? '0', Icons.medical_services, Colors.green),
-                        _cardKPI("SEM MÉDICO", _stats?['saude']?['sem_medico']?.toString() ?? '0', Icons.warning, Colors.redAccent),
+                        _cardKPI("SEM MÉDICO", _stats?['saude']?['sem_medico']?.toString() ?? '0', Icons.warning_amber_rounded, Colors.redAccent),
                         _cardKPI("COM NUTRICIONISTA", _stats?['saude']?['com_nutri']?.toString() ?? '0', Icons.local_dining, Colors.green),
-                        _cardKPI("SEM NUTRICIONISTA", _stats?['saude']?['sem_nutri']?.toString() ?? '0', Icons.warning, Colors.redAccent),
+                        _cardKPI("SEM NUTRICIONISTA", _stats?['saude']?['sem_nutri']?.toString() ?? '0', Icons.warning_amber_rounded, Colors.redAccent),
                       ],
                     ),
 
                     SizedBox(height: 40),
-                    Text("Distribuição por Tempo de Gestação", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("Distribuição por Tempo de Gestação", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[800])),
                     SizedBox(height: 20),
 
                     // LINHA 3: TRIMESTRES
@@ -152,15 +178,15 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: cor, size: 30),
           SizedBox(height: 15),
-          Text(valor, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-          Text(label, style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(valor, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
         ],
       ),
     );
@@ -171,8 +197,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       width: 340,
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [cor, cor.withOpacity(0.7)]),
+        gradient: LinearGradient(
+          colors: [cor, cor.withOpacity(0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: cor.withOpacity(0.3), blurRadius: 8, offset: Offset(0, 4))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

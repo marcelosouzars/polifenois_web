@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data'; // Necessário para gerenciar os bytes da imagem
 import 'package:file_picker/file_picker.dart';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
@@ -16,6 +17,7 @@ class CadastroGestanteWeb extends StatefulWidget {
 class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   int _indiceMenu = 1; 
   final _formKey = GlobalKey<FormState>();
+  Uint8List? _fotoPerfilBytes; // Armazena a nova foto selecionada
   
   // ===========================================================================
   // CONTROLADORES SOBERANOS DO MARCELO
@@ -85,6 +87,23 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     }
   }
 
+  // NOVA FUNÇÃO: SELECIONAR FOTO DE PERFIL
+  Future<void> _alterarFotoPerfil() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'png', 'jpeg'],
+    );
+
+    if (result != null) {
+      setState(() {
+        _fotoPerfilBytes = result.files.first.bytes;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Foto de perfil selecionada!")),
+      );
+    }
+  }
+
   // ===========================================================================
   // LÓGICA DE GESTÃO DE FOTOS E REFEIÇÕES
   // ===========================================================================
@@ -118,7 +137,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                           borderRadius: BorderRadius.circular(10),
                           child: refeicao['foto_prato_url'] != null && refeicao['foto_prato_url'].length > 500
                             ? Image.memory(base64Decode(refeicao['foto_prato_url']), height: 300, width: double.infinity, fit: BoxFit.cover)
-                            : Image.network(refeicao['foto_prato_url'] ?? '', height: 300, width: double.infinity, fit: BoxFit.cover),
+                            : Image.network(refeicao['foto_prato_url'] ?? '', height: 300, width: double.infinity, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(height: 300, color: Colors.grey[200], child: Icon(Icons.broken_image, size: 50))),
                         ),
                       ),
                       Positioned(
@@ -178,7 +197,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
   }
 
-  // --- NOVA FUNÇÃO: MODAL DE OPÇÕES DA FOTO ---
   void _modalOpcoesFoto(String refeicaoId, StateSetter modalRefresh) {
     showDialog(
       context: context,
@@ -209,7 +227,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
   }
 
-  // --- NOVA FUNÇÃO: EXPLORER + SELEÇÃO + 3 BOTÕES ---
   void _selecionarEConfirmarFoto(String refeicaoId, StateSetter modalRefresh) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -257,8 +274,8 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
         body: jsonEncode({"foto_base64": base64}),
       );
       if (res.statusCode == 200) {
-        modalRefresh(() {}); // Atualiza o modal
-        _carregarRefeicoes(); // Atualiza o dashboard
+        modalRefresh(() {});
+        _carregarRefeicoes();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Foto atualizada com sucesso!"), backgroundColor: Colors.green));
       }
     } catch (e) {
@@ -266,7 +283,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     }
   }
 
-  // --- RESTANTE DAS FUNÇÕES (ADICIONAR/EXCLUIR ITENS) ---
   void _modalNovoItem(String refeicaoId, StateSetter modalRefresh) {
     TextEditingController _itNome = TextEditingController();
     TextEditingController _itPeso = TextEditingController();
@@ -353,7 +369,32 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.person_pin, size: 60, color: PolifenoisTema.azulPrimario),
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: Colors.blueGrey[50],
+                            backgroundImage: _fotoPerfilBytes != null 
+                              ? MemoryImage(_fotoPerfilBytes!) 
+                              : (widget.usuario['foto_perfil_url'] != null ? NetworkImage(widget.usuario['foto_perfil_url']) : null) as ImageProvider?,
+                            child: (_fotoPerfilBytes == null && widget.usuario['foto_perfil_url'] == null)
+                                ? Icon(Icons.person_pin, size: 60, color: PolifenoisTema.azulPrimario)
+                                : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: _alterarFotoPerfil,
+                              child: CircleAvatar(
+                                radius: 15,
+                                backgroundColor: PolifenoisTema.azulPrimario,
+                                child: Icon(Icons.camera_alt, size: 15, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       SizedBox(height: 10),
                       Text(_nome.text, style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
                     ],
@@ -419,7 +460,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                                   children: [
                                     r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500
                                       ? Image.memory(base64Decode(r['foto_prato_url']), fit: BoxFit.cover, width: double.infinity)
-                                      : Image.network(r['foto_prato_url'] ?? '', fit: BoxFit.cover, width: double.infinity),
+                                      : Image.network(r['foto_prato_url'] ?? '', fit: BoxFit.cover, width: double.infinity, errorBuilder: (c, e, s) => Container(color: Colors.grey[100], child: Icon(Icons.restaurant, color: Colors.grey))),
                                     Positioned(
                                       top: 5, right: 5,
                                       child: Container(
@@ -453,7 +494,6 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
   }
 
-  // --- SEU FORMULÁRIO DE PERFIL COMPLETO (MANTIDO) ---
   Widget _buildFormulario() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(40),
@@ -489,7 +529,9 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                 ]),
                 SizedBox(height: 40),
                 _salvando ? Center(child: CircularProgressIndicator()) : ElevatedButton(
-                  onPressed: () {}, 
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Salvamento em nuvem disponível na próxima versão!")));
+                  }, 
                   style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, minimumSize: Size(double.infinity, 60)),
                   child: Text("GUARDAR PERFIL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
 
@@ -15,11 +17,37 @@ class DashboardMasterWeb extends StatefulWidget {
 class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   Map<String, dynamic>? _stats;
   bool _carregando = true;
+  Uint8List? _fotoPerfilBytes;
 
   @override
   void initState() {
     super.initState();
     _buscarEstatisticas();
+  }
+
+  Future<void> _selecionarFoto() async {
+    try {
+      final ImagePicker _picker = ImagePicker();
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 500,
+        maxHeight: 500,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _fotoPerfilBytes = bytes;
+        });
+        // Nota: Futuramente enviaremos este Base64 para o servidor via API
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Foto selecionada!")),
+        );
+      }
+    } catch (e) {
+      _mostrarErro("Erro ao selecionar imagem.");
+    }
   }
 
   Future<void> _buscarEstatisticas() async {
@@ -52,7 +80,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     );
   }
 
-  // FUNÇÃO DE APOIO: Garante que o valor vire String sem quebrar o app
   String _v(dynamic valor) {
     if (valor == null) return "0";
     return valor.toString();
@@ -74,7 +101,34 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.stars, size: 60, color: Colors.amber),
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: Colors.white24,
+                            backgroundImage: _fotoPerfilBytes != null 
+                              ? MemoryImage(_fotoPerfilBytes!) 
+                              : (widget.usuario['foto_perfil_url'] != null 
+                                  ? NetworkImage(widget.usuario['foto_perfil_url']) as ImageProvider
+                                  : null),
+                            child: (_fotoPerfilBytes == null && widget.usuario['foto_perfil_url'] == null)
+                                ? Icon(Icons.person, size: 50, color: Colors.white)
+                                : null,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: _selecionarFoto,
+                              child: CircleAvatar(
+                                radius: 15,
+                                backgroundColor: Colors.amber,
+                                child: Icon(Icons.camera_alt, size: 15, color: Colors.black),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       SizedBox(height: 10),
                       Text("PAINEL MASTER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       Text(widget.usuario['nome'] ?? 'Master', style: TextStyle(color: Colors.white70, fontSize: 12)),

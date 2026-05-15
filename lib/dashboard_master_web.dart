@@ -74,7 +74,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.admin_panel_settings, size: 60, color: Colors.white),
+                      Icon(Icons.stars, size: 60, color: Colors.amber),
                       SizedBox(height: 10),
                       Text("PAINEL MASTER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       Text(widget.usuario['nome'] ?? 'Master', style: TextStyle(color: Colors.white70, fontSize: 12)),
@@ -121,7 +121,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text("Monitoramento Estratégico", style: PolifenoisTema.tituloEstilo),
+                        Text("Monitoramento Estratégico", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
                         IconButton(
                           icon: Icon(Icons.refresh, color: Color(0xFF1A237E)), 
                           onPressed: _buscarEstatisticas

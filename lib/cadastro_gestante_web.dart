@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:typed_data'; // Necessário para gerenciar os bytes da imagem
+import 'dart:typed_data'; 
 import 'package:file_picker/file_picker.dart';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
@@ -17,7 +17,7 @@ class CadastroGestanteWeb extends StatefulWidget {
 class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   int _indiceMenu = 1; 
   final _formKey = GlobalKey<FormState>();
-  Uint8List? _fotoPerfilBytes; // Armazena a nova foto selecionada
+  Uint8List? _fotoPerfilBytes; 
   
   // ===========================================================================
   // CONTROLADORES SOBERANOS DO MARCELO
@@ -87,7 +87,9 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     }
   }
 
-  // NOVA FUNÇÃO: SELECIONAR FOTO DE PERFIL
+  // =========================================================================
+  // LÓGICA DE ALTERAÇÃO DE FOTO DE PERFIL COM GRAVAÇÃO NO NEON
+  // =========================================================================
   Future<void> _alterarFotoPerfil() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -95,17 +97,54 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
 
     if (result != null) {
-      setState(() {
-        _fotoPerfilBytes = result.files.first.bytes;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Foto de perfil selecionada!")),
+      final bytes = result.files.first.bytes;
+      if (bytes == null) return;
+
+      // Pop-up de Confirmação
+      bool? confirmar = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text("Alterar Foto de Perfil?"),
+          content: Text("Deseja salvar esta imagem como sua nova foto de perfil?"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text("CANCELAR")),
+            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: Text("SALVAR AGORA")),
+          ],
+        ),
       );
+
+      if (confirmar == true) {
+        setState(() => _salvando = true);
+        try {
+          String base64Foto = base64Encode(bytes);
+          final res = await http.put(
+            Uri.parse("https://polifenois-backend.onrender.com/atualizar-foto-perfil"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "usuario_id": widget.usuario['id'],
+              "foto_base64": base64Foto,
+            }),
+          );
+
+          if (res.statusCode == 200) {
+            setState(() {
+              _fotoPerfilBytes = bytes;
+              _salvando = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Foto atualizada com sucesso!"), backgroundColor: Colors.green));
+          } else {
+            throw Exception("Erro no servidor");
+          }
+        } catch (e) {
+          setState(() => _salvando = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao salvar foto no servidor."), backgroundColor: Colors.red));
+        }
+      }
     }
   }
 
   // ===========================================================================
-  // LÓGICA DE GESTÃO DE FOTOS E REFEIÇÕES
+  // LÓGICA DE GESTÃO DE FOTOS E REFEIÇÕES (MANTIDA)
   // ===========================================================================
 
   void _abrirDetalhesRefeicao(Map<String, dynamic> refeicao) {
@@ -376,8 +415,10 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                             backgroundColor: Colors.blueGrey[50],
                             backgroundImage: _fotoPerfilBytes != null 
                               ? MemoryImage(_fotoPerfilBytes!) 
-                              : (widget.usuario['foto_perfil_url'] != null ? NetworkImage(widget.usuario['foto_perfil_url']) : null) as ImageProvider?,
-                            child: (_fotoPerfilBytes == null && widget.usuario['foto_perfil_url'] == null)
+                              : (widget.usuario['foto_perfil_url'] != null && widget.usuario['foto_perfil_url'].toString().length > 100
+                                  ? MemoryImage(base64Decode(widget.usuario['foto_perfil_url']))
+                                  : null),
+                            child: (_fotoPerfilBytes == null && (widget.usuario['foto_perfil_url'] == null || widget.usuario['foto_perfil_url'].toString().length < 100))
                                 ? Icon(Icons.person_pin, size: 60, color: PolifenoisTema.azulPrimario)
                                 : null,
                           ),

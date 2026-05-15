@@ -25,6 +25,9 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     _buscarEstatisticas();
   }
 
+  // =========================================================================
+  // LÓGICA DE ALTERAÇÃO DE FOTO COM CONFIRMAÇÃO E GRAVAÇÃO
+  // =========================================================================
   Future<void> _selecionarFoto() async {
     try {
       final ImagePicker _picker = ImagePicker();
@@ -37,16 +40,55 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       
       if (image != null) {
         final bytes = await image.readAsBytes();
-        setState(() {
-          _fotoPerfilBytes = bytes;
-        });
-        // Nota: Futuramente enviaremos este Base64 para o servidor via API
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Foto selecionada!")),
+        
+        // Pergunta se realmente deseja alterar a foto
+        bool? confirmar = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text("Alterar Foto de Perfil?"),
+            content: Text("Deseja salvar esta nova imagem como sua foto oficial no sistema?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text("CANCELAR"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text("SALVAR AGORA"),
+              ),
+            ],
+          ),
         );
+
+        if (confirmar == true) {
+          setState(() => _carregando = true);
+          String base64Foto = base64Encode(bytes);
+
+          final response = await http.put(
+            Uri.parse("https://polifenois-backend.onrender.com/atualizar-foto-perfil"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "usuario_id": widget.usuario['id'],
+              "foto_base64": base64Foto,
+            }),
+          );
+
+          if (response.statusCode == 200) {
+            setState(() {
+              _fotoPerfilBytes = bytes;
+              _carregando = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Foto de perfil atualizada com sucesso!"), backgroundColor: Colors.green),
+            );
+          } else {
+            throw Exception("Erro no servidor");
+          }
+        }
       }
     } catch (e) {
-      _mostrarErro("Erro ao selecionar imagem.");
+      setState(() => _carregando = false);
+      _mostrarErro("Erro ao salvar imagem: $e");
     }
   }
 
@@ -108,10 +150,10 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                             backgroundColor: Colors.white24,
                             backgroundImage: _fotoPerfilBytes != null 
                               ? MemoryImage(_fotoPerfilBytes!) 
-                              : (widget.usuario['foto_perfil_url'] != null 
-                                  ? NetworkImage(widget.usuario['foto_perfil_url']) as ImageProvider
+                              : (widget.usuario['foto_perfil_url'] != null && widget.usuario['foto_perfil_url'].toString().length > 100
+                                  ? MemoryImage(base64Decode(widget.usuario['foto_perfil_url']))
                                   : null),
-                            child: (_fotoPerfilBytes == null && widget.usuario['foto_perfil_url'] == null)
+                            child: (_fotoPerfilBytes == null && (widget.usuario['foto_perfil_url'] == null || widget.usuario['foto_perfil_url'].toString().length < 100))
                                 ? Icon(Icons.person, size: 50, color: Colors.white)
                                 : null,
                           ),
@@ -164,7 +206,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                 children: [
                   CircularProgressIndicator(color: Color(0xFF1A237E)),
                   SizedBox(height: 20),
-                  Text("Calculando estatísticas...", style: TextStyle(color: Colors.grey[600]))
+                  Text("Processando...", style: TextStyle(color: Colors.grey[600]))
                 ],
               )) 
             : SingleChildScrollView(

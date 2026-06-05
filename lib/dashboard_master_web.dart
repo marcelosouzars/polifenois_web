@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
+import 'gestao_alimentos_web.dart'; // IMPORT ADICIONADO AQUI
 
 class DashboardMasterWeb extends StatefulWidget {
   final Map<String, dynamic> usuario;
@@ -186,6 +187,16 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                   leading: Icon(Icons.people, color: Colors.white70),
                   title: Text("Lista de Gestantes", style: TextStyle(color: Colors.white70)),
                   onTap: () {},
+                ),
+                // =========================================================
+                // NOVO BOTÃO DA BASE USDA AQUI
+                // =========================================================
+                ListTile(
+                  leading: Icon(Icons.kitchen, color: Colors.white70),
+                  title: Text("Base USDA", style: TextStyle(color: Colors.white70)),
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (c) => GestaoAlimentosWeb(usuario: widget.usuario)));
+                  },
                 ),
                 Spacer(),
                 ListTile(

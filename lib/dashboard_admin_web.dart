@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
+import 'gestao_alimentos_web.dart';
 
 class DashboardAdminWeb extends StatefulWidget {
   final Map<String, dynamic> usuario;
@@ -163,6 +164,13 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                   title: Text("Estatísticas Nutricionais", style: TextStyle(color: PolifenoisTema.cinzaTexto)),
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Módulo em desenvolvimento.")));
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.kitchen, color: PolifenoisTema.cinzaTexto),
+                  title: Text("Base USDA", style: TextStyle(color: PolifenoisTema.cinzaTexto)),
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (c) => GestaoAlimentosWeb(usuario: widget.usuario)));
                   },
                 ),
               ],

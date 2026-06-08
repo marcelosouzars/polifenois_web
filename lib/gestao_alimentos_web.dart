@@ -16,7 +16,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   bool _carregando = true;
   int _paginaAtual = 1;
   int _totalPaginas = 1;
-  String _filtroOrigem = "TODOS"; // Novo filtro de origem
+  String _filtroOrigem = "TODOS";
   TextEditingController _buscaController = TextEditingController();
 
   @override
@@ -28,7 +28,6 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   Future<void> _buscarAlimentos({int pagina = 1}) async {
     setState(() => _carregando = true);
     try {
-      // Agora enviamos o filtro de origem para o Backend
       final url = Uri.parse(
           "https://polifenois-backend.onrender.com/alimentos-usda?busca=${_buscaController.text}&pagina=$pagina&origem=$_filtroOrigem");
       final response = await http.get(url);
@@ -48,11 +47,11 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     }
   }
 
-  // MODAL DE EDIÇÃO (MANTIDO)
   void _abrirModalAlimento({Map<String, dynamic>? alimento}) {
     bool isEdicao = alimento != null;
-    TextEditingController nomeCtrl = TextEditingController(text: isEdicao ? alimento['nome_en'] : '');
-    TextEditingController poliCtrl = TextEditingController(text: isEdicao ? alimento['total_polifenois'].toString() : '');
+    // Ajustado para os nomes corretos do seu banco atual:
+    TextEditingController nomeCtrl = TextEditingController(text: isEdicao ? (alimento['nome_alimento'] ?? '') : '');
+    TextEditingController poliCtrl = TextEditingController(text: isEdicao ? alimento['polifenois_mg_100g'].toString() : '');
 
     showDialog(
       context: context,
@@ -63,7 +62,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
           children: [
             TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome", Icons.fastfood)),
             SizedBox(height: 15),
-            TextField(controller: poliCtrl, decoration: PolifenoisTema.inputDecoracao("Polifenóis (mg)", Icons.science), keyboardType: TextInputType.number),
+            TextField(controller: poliCtrl, decoration: PolifenoisTema.inputDecoracao("Polifenóis (mg/100g)", Icons.science), keyboardType: TextInputType.number),
           ],
         ),
         actions: [
@@ -71,7 +70,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              await _salvarAlimento(isEdicao ? alimento['ndb_no'] : null, nomeCtrl.text, poliCtrl.text, !isEdicao);
+              await _salvarAlimento(isEdicao ? alimento['codigo_origem'] : null, nomeCtrl.text, poliCtrl.text, !isEdicao);
             },
             child: Text("SALVAR"),
           ),
@@ -80,16 +79,17 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     );
   }
 
-  Future<void> _salvarAlimento(String? ndbNo, String nome, String poli, bool isNovo) async {
+  Future<void> _salvarAlimento(String? codOrigem, String nome, String poli, bool isNovo) async {
     setState(() => _carregando = true);
     try {
+      // Nota: Certifique-se que sua rota PUT no backend aceite 'codigo_origem'
       Uri url = isNovo 
           ? Uri.parse("https://polifenois-backend.onrender.com/alimentos-usda")
-          : Uri.parse("https://polifenois-backend.onrender.com/alimentos-usda/$ndbNo");
+          : Uri.parse("https://polifenois-backend.onrender.com/alimentos-usda/$codOrigem");
 
       var response = isNovo 
-          ? await http.post(url, headers: {"Content-Type": "application/json"}, body: jsonEncode({"nome": nome, "total_polifenois": poli}))
-          : await http.put(url, headers: {"Content-Type": "application/json"}, body: jsonEncode({"nome": nome, "total_polifenois": poli}));
+          ? await http.post(url, headers: {"Content-Type": "application/json"}, body: jsonEncode({"nome": nome, "polifenois": poli}))
+          : await http.put(url, headers: {"Content-Type": "application/json"}, body: jsonEncode({"nome": nome, "polifenois": poli}));
 
       if (response.statusCode == 200) {
         _buscarAlimentos(pagina: _paginaAtual);
@@ -103,12 +103,11 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PolifenoisTema.azulClaroFundo,
-      appBar: AppBar(title: Text("Base de Alimentos"), backgroundColor: PolifenoisTema.azulPrimario),
+      appBar: AppBar(title: Text("Base de Alimentos - Super Base"), backgroundColor: PolifenoisTema.azulPrimario),
       body: Padding(
         padding: EdgeInsets.all(30),
         child: Column(
           children: [
-            // BARRA DE FILTROS E BUSCA
             Row(
               children: [
                 Expanded(child: TextField(controller: _buscaController, decoration: PolifenoisTema.inputDecoracao("Buscar...", Icons.search))),
@@ -125,19 +124,24 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
             SizedBox(height: 20),
             Expanded(
               child: Card(
-                child: _carregando ? Center(child: CircularProgressIndicator()) : DataTable(
-                  columns: [
-                    DataColumn(label: Text("Origem")),
-                    DataColumn(label: Text("Nome")),
-                    DataColumn(label: Text("Polifenóis")),
-                    DataColumn(label: Text("Ações")),
-                  ],
-                  rows: _alimentos.map((a) => DataRow(cells: [
-                    DataCell(Chip(label: Text(a['origem_dados'] ?? 'N/A'))),
-                    DataCell(Text(a['nome_alimento'] ?? a['nome_en'] ?? '')),
-                    DataCell(Text(a['total_polifenois']?.toString() ?? '0')),
-                    DataCell(IconButton(icon: Icon(Icons.edit), onPressed: () => _abrirModalAlimento(alimento: a)))
-                  ])).toList(),
+                child: _carregando ? Center(child: CircularProgressIndicator()) : SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(label: Text("Origem")),
+                      DataColumn(label: Text("Código")),
+                      DataColumn(label: Text("Nome")),
+                      DataColumn(label: Text("Polifenóis")),
+                      DataColumn(label: Text("Ações")),
+                    ],
+                    rows: _alimentos.map((a) => DataRow(cells: [
+                      DataCell(Chip(label: Text(a['origem_dados'] ?? 'N/A'))),
+                      DataCell(Text(a['codigo_origem']?.toString() ?? '')),
+                      DataCell(Text(a['nome_alimento'] ?? '')),
+                      DataCell(Text(a['polifenois_mg_100g']?.toString() ?? '0')),
+                      DataCell(IconButton(icon: Icon(Icons.edit), onPressed: () => _abrirModalAlimento(alimento: a)))
+                    ])).toList(),
+                  ),
                 ),
               ),
             ),

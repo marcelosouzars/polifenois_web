@@ -34,25 +34,24 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _alimentos = data['alimentos'] ?? [];
-          _paginaAtual = data['pagina'];
-          _totalPaginas = data['totalPaginas'];
-          _carregando = false;
-        });
-      } else {
-        setState(() => _carregando = false);
+        if (mounted) {
+          setState(() {
+            _alimentos = data['alimentos'] ?? [];
+            _paginaAtual = data['pagina'] ?? 1;
+            _totalPaginas = data['totalPaginas'] ?? 1;
+            _carregando = false;
+          });
+        }
       }
     } catch (e) {
-      print("Erro ao carregar alimentos: $e");
-      setState(() => _carregando = false);
+      if (mounted) setState(() => _carregando = false);
     }
   }
 
   void _abrirModalAlimento({Map<String, dynamic>? alimento}) {
     bool isEdicao = alimento != null;
     TextEditingController nomeCtrl = TextEditingController(text: isEdicao ? (alimento['nome_alimento'] ?? '') : '');
-    TextEditingController poliCtrl = TextEditingController(text: isEdicao ? alimento['polifenois_mg_100g'].toString() : '');
+    TextEditingController poliCtrl = TextEditingController(text: isEdicao ? (alimento['polifenois_mg_100g']?.toString() ?? '0') : '');
 
     showDialog(
       context: context,

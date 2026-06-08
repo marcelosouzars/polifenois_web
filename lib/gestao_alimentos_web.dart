@@ -123,7 +123,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   }
 
   // =====================================================================
-  // EXCLUIR ALIMENTO (DELETE)
+  // EXCLUIR ALIMENTO (DELETE) - COM UX OTIMIZADA (TRUQUE VISUAL)
   // =====================================================================
   Future<void> _confirmarExclusao(String ndbNo, String nome) async {
     showDialog(
@@ -136,17 +136,28 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
-              setState(() => _carregando = true);
+              Navigator.pop(context); // Fecha a modal de confirmação
+              
+              // TRUQUE DE UX: Remoção otimista da tela imediatamente
+              setState(() {
+                _alimentos.removeWhere((item) => item['ndb_no'] == ndbNo);
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Excluído com sucesso!"), backgroundColor: Colors.redAccent, duration: Duration(seconds: 2))
+              );
+
+              // Comunicação em Background com o Banco de Dados
               try {
                 final res = await http.delete(Uri.parse("https://polifenois-backend.onrender.com/alimentos-usda/$ndbNo"));
-                if (res.statusCode == 200) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Excluído com sucesso!"), backgroundColor: Colors.redAccent));
+                if (res.statusCode != 200) {
+                  // Se falhar no servidor, avisa e recarrega a tabela para garantir consistência visual x banco
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro de sincronização. Recarregando..."), backgroundColor: Colors.orange));
                   _buscarAlimentos(pagina: _paginaAtual);
                 }
               } catch (e) {
-                print("Erro ao excluir: $e");
-                setState(() => _carregando = false);
+                print("Erro ao excluir no servidor: $e");
+                _buscarAlimentos(pagina: _paginaAtual);
               }
             },
             child: Text("EXCLUIR", style: TextStyle(color: Colors.white)),

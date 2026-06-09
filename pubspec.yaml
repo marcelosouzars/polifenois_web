@@ -1,27 +1,26 @@
 name: polifenois_web
-description: "Sistemas Web para o Projeto Polifenóis - Vetix Tecnologia"
+description: "A new Flutter project."
 publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0' # Versão mais flexível para garantir compatibilidade no Render
+  sdk: ^3.11.0
 
 dependencies:
   flutter:
     sdk: flutter
-
   cupertino_icons: ^1.0.8
-  http: ^1.1.0
-  intl: ^0.19.0
-  file_picker: ^8.0.0      # Necessário para o Dashboard da Gestante
-  image_picker: ^1.1.2     # Necessário para o Dashboard Master (Câmera)
-  universal_html: ^2.2.4
+  http: ^1.6.0
+  image_picker: ^1.1.2
+  file_picker: ^8.0.5
+  pdf: ^3.11.0
+  printing: ^5.13.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

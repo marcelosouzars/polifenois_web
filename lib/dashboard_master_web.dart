@@ -75,6 +75,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     }
   }
 
+  // A GRANDE CORREÇÃO: Bloco finally adicionado para forçar a parada do loading
   Future<void> _carregarPacientes() async {
     setState(() => _carregandoPacientes = true);
     try {
@@ -84,12 +85,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
         if (data['sucesso']) {
           setState(() {
             _pacientes = data['pacientes'] ?? [];
-            _carregandoPacientes = false;
           });
         }
       }
     } catch (e) {
-      setState(() => _carregandoPacientes = false);
+      print("Erro ao carregar pacientes: $e");
+    } finally {
+      if (mounted) setState(() => _carregandoPacientes = false);
     }
   }
 
@@ -193,7 +195,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       backgroundColor: Color(0xFFF4F7F6),
       body: Row(
         children: [
-          // SIDEBAR DO MASTER
           Container(
             width: 280,
             color: Color(0xFF1A237E),
@@ -271,7 +272,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             ),
           ),
           
-          // CONTEÚDO PRINCIPAL DINÂMICO
           Expanded(
             child: _indiceMenu == 0 ? _buildEstatisticas() : _buildListaGestantes(),
           ),

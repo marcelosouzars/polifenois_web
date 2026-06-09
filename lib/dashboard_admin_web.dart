@@ -24,7 +24,9 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     _carregarPacientes();
   }
 
+  // A GRANDE CORREÇÃO: Bloco finally adicionado para forçar a parada do loading
   Future<void> _carregarPacientes() async {
+    setState(() => _loading = true);
     try {
       final response = await http.get(
         Uri.parse("https://polifenois-backend.onrender.com/pacientes"),
@@ -35,13 +37,13 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
         if (data['sucesso']) {
           setState(() {
             _pacientes = data['pacientes'] ?? [];
-            _loading = false;
           });
         }
       }
     } catch (e) {
       print("Erro ao carregar pacientes: $e");
-      setState(() => _loading = false);
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

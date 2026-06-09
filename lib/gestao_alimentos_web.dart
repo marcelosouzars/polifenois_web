@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'tema_padrao_web.dart';
 
 class GestaoAlimentosWeb extends StatefulWidget {
@@ -49,9 +52,6 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     }
   }
 
-  // =========================================================================
-  // MODAL PARA INCLUIR OU EDITAR
-  // =========================================================================
   void _abrirModalAlimento({Map<String, dynamic>? alimento}) {
     bool isEdicao = alimento != null;
     TextEditingController nomeCtrl = TextEditingController(text: isEdicao ? (alimento['nome_alimento'] ?? '') : '');
@@ -105,7 +105,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
       };
 
       if (isNovo) {
-        bodyData["origem_dados"] = "BRA"; // Padrão manual
+        bodyData["origem_dados"] = "BRA"; 
       }
 
       var response = isNovo 
@@ -123,9 +123,6 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     }
   }
 
-  // =========================================================================
-  // LÓGICA DE EXCLUSÃO
-  // =========================================================================
   Future<void> _confirmarExclusao(String codOrigem, String nomeAlimento) async {
     showDialog(
       context: context,
@@ -162,12 +159,54 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     }
   }
 
-  void _simularImpressao() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Gerando arquivo de impressão da consulta... (Módulo em desenvolvimento)"),
-        backgroundColor: Colors.blueGrey,
+  // =========================================================================
+  // GERAÇÃO DE PDF E IMPRESSÃO (NOVIDADE!)
+  // =========================================================================
+  Future<void> _imprimirLista() async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text("Relatório - Base Global de Alimentos", style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+              pw.SizedBox(height: 10),
+              pw.Text("Gerado pelo Sistema Polifenóis Vetix", style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700)),
+              pw.SizedBox(height: 20),
+              pw.TableHelper.fromTextArray(
+                headers: ['Origem', 'Código', 'Categoria', 'Nome / Composto', 'Polifenóis'],
+                data: _alimentos.map((a) {
+                  String nome = a['nome_alimento']?.toString() ?? 'N/A';
+                  if (a['compound'] != null && a['compound'].toString().trim().isNotEmpty) {
+                    nome += " (${a['compound']})";
+                  }
+                  return [
+                    a['origem_dados']?.toString() ?? 'BRA',
+                    a['codigo_origem']?.toString() ?? '-',
+                    a['categoria']?.toString() ?? 'Geral',
+                    nome,
+                    "${a['polifenois_mg_100g']?.toString() ?? '0'} ${a['units'] ?? 'mg'}"
+                  ];
+                }).toList(),
+                border: pw.TableBorder.all(color: PdfColors.grey400),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                headerDecoration: pw.BoxDecoration(color: PdfColors.blue800),
+                cellStyle: pw.TextStyle(fontSize: 10),
+                cellAlignment: pw.Alignment.centerLeft,
+              ),
+            ],
+          );
+        },
       ),
+    );
+
+    // Chama a janela nativa do navegador para imprimir ou salvar em PDF
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Relatorio_Alimentos_Vetix.pdf',
     );
   }
 
@@ -180,13 +219,10 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
         padding: EdgeInsets.all(30),
         child: Column(
           children: [
-            // =========================================================
-            // TOPO: BARRA DE BUSCA MENOR + BOTÃO INCLUIR
-            // =========================================================
             Row(
               children: [
                 Expanded(
-                  flex: 3, // Controla a largura do campo de busca para não ficar gigante
+                  flex: 3, 
                   child: TextField(
                     controller: _buscaController, 
                     decoration: PolifenoisTema.inputDecoracao("Buscar por alimento, composto ou categoria...", Icons.search), 
@@ -222,10 +258,6 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
               ],
             ),
             SizedBox(height: 20),
-            
-            // =========================================================
-            // TABELA DE DADOS
-            // =========================================================
             Expanded(
               child: Card(
                 elevation: 4,
@@ -288,9 +320,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
                             ),
                           ),
                           
-                          // =========================================================
-                          // RODAPÉ: BOTÃO DE IMPRESSÃO E PAGINAÇÃO
-                          // =========================================================
+                          // RODAPÉ: BOTÃO DE IMPRESSÃO REAL AQUI
                           Container(
                             padding: EdgeInsets.all(15),
                             decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade300))),
@@ -298,7 +328,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 ElevatedButton.icon(
-                                  onPressed: _simularImpressao,
+                                  onPressed: _imprimirLista, // CHAMADA DA FUNÇÃO PDF REAL
                                   icon: Icon(Icons.print, size: 18, color: Colors.white),
                                   label: Text("IMPRIMIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                   style: ElevatedButton.styleFrom(

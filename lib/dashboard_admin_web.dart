@@ -45,7 +45,6 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     }
   }
 
-  // --- NOVA FUNÇÃO: POP-UP DE CONFIRMAÇÃO DE SENHA ---
   void _confirmarLiberacao(int idPaciente) {
     final TextEditingController _senhaAdminController = TextEditingController();
     
@@ -77,7 +76,6 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     );
   }
 
-  // --- NOVA FUNÇÃO: EXECUTAR A LIBERAÇÃO ---
   Future<void> _executarLiberacao(int idPaciente, String senha) async {
     try {
       final response = await http.post(
@@ -85,14 +83,14 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "id_paciente": idPaciente,
-          "id_admin": widget.usuario['id'], // Pega o ID do médico logado
-          "senha_admin": senha // Envia a senha digitada
+          "id_admin": widget.usuario['id'], 
+          "senha_admin": senha 
         }),
       );
       
       if (response.statusCode == 200) {
-        Navigator.pop(context); // Fecha a popup
-        _carregarPacientes(); // Recarrega a tabela
+        Navigator.pop(context); 
+        _carregarPacientes(); 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Acesso da paciente liberado com sucesso!"), backgroundColor: Colors.green),
         );
@@ -104,6 +102,23 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     } catch (e) {
       print("Erro ao validar: $e");
     }
+  }
+
+  void _mostrarAvisoDesenvolvimento() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Módulo em Desenvolvimento", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
+        content: Text("O módulo de configurações estará disponível nas próximas atualizações do sistema."),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+            child: Text("OK", style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
+    );
   }
 
   @override
@@ -147,7 +162,7 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                       children: [
                         Icon(Icons.admin_panel_settings, size: 50, color: PolifenoisTema.azulPrimario),
                         SizedBox(height: 10),
-                        Text("Painel Master", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold, fontSize: 18)),
+                        Text("Painel Clínico", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold, fontSize: 18)),
                       ],
                     ),
                   ),
@@ -168,10 +183,15 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                 ),
                 ListTile(
                   leading: Icon(Icons.kitchen, color: PolifenoisTema.cinzaTexto),
-                  title: Text("Base USDA", style: TextStyle(color: PolifenoisTema.cinzaTexto)),
+                  title: Text("Base Global de Alimentos", style: TextStyle(color: PolifenoisTema.cinzaTexto)),
                   onTap: () {
                     Navigator.push(context, MaterialPageRoute(builder: (c) => GestaoAlimentosWeb(usuario: widget.usuario)));
                   },
+                ),
+                ListTile(
+                  leading: Icon(Icons.settings, color: PolifenoisTema.cinzaTexto),
+                  title: Text("Configurações", style: TextStyle(color: PolifenoisTema.cinzaTexto)),
+                  onTap: () => _mostrarAvisoDesenvolvimento(),
                 ),
               ],
             ),
@@ -221,7 +241,6 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                                                 backgroundColor: validado ? Colors.green.shade600 : Colors.orange.shade600,
                                               )
                                             ),
-                                            // COLUNA AÇÕES ALTERADA PARA CHAMAR A POPUP
                                             DataCell(
                                               validado
                                                 ? Row(children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 5), Text("Liberado")])

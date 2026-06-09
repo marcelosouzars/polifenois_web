@@ -148,12 +148,10 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   }
 
   Future<void> _executarExclusaoVisual(String codOrigem) async {
-    // 1. Truque de interface: Some da tela na mesma hora
     setState(() {
       _alimentos.removeWhere((a) => a['codigo_origem'] == codOrigem);
     });
 
-    // 2. Apaga no banco de dados em background
     try {
       final response = await http.delete(Uri.parse("https://polifenois-backend.onrender.com/base-nutricional/$codOrigem"));
       if (response.statusCode == 200) {
@@ -164,11 +162,20 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     }
   }
 
+  void _simularImpressao() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Gerando arquivo de impressão da consulta... (Módulo em desenvolvimento)"),
+        backgroundColor: Colors.blueGrey,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PolifenoisTema.azulClaroFundo,
-      appBar: AppBar(title: Text("Super Base Nutricional Global", style: TextStyle(color: Colors.white)), backgroundColor: PolifenoisTema.azulPrimario, iconTheme: IconThemeData(color: Colors.white)),
+      appBar: AppBar(title: Text("Base Global de Alimentos", style: TextStyle(color: Colors.white)), backgroundColor: PolifenoisTema.azulPrimario, iconTheme: IconThemeData(color: Colors.white)),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _abrirModalAlimento(),
         backgroundColor: PolifenoisTema.azulPrimario,
@@ -267,18 +274,32 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
                             padding: EdgeInsets.all(15),
                             decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade300))),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text("Página $_paginaAtual de $_totalPaginas"),
-                                SizedBox(width: 20),
-                                ElevatedButton(
-                                  onPressed: _paginaAtual > 1 ? () => _buscarAlimentos(pagina: _paginaAtual - 1) : null,
-                                  child: Icon(Icons.arrow_back_ios, size: 16),
+                                // BOTÃO DE IMPRIMIR AQUI NO RODAPÉ
+                                ElevatedButton.icon(
+                                  onPressed: _simularImpressao,
+                                  icon: Icon(Icons.print, size: 18, color: Colors.white),
+                                  label: Text("IMPRIMIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blueGrey,
+                                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                                  ),
                                 ),
-                                SizedBox(width: 10),
-                                ElevatedButton(
-                                  onPressed: _paginaAtual < _totalPaginas ? () => _buscarAlimentos(pagina: _paginaAtual + 1) : null,
-                                  child: Icon(Icons.arrow_forward_ios, size: 16),
+                                Row(
+                                  children: [
+                                    Text("Página $_paginaAtual de $_totalPaginas"),
+                                    SizedBox(width: 20),
+                                    ElevatedButton(
+                                      onPressed: _paginaAtual > 1 ? () => _buscarAlimentos(pagina: _paginaAtual - 1) : null,
+                                      child: Icon(Icons.arrow_back_ios, size: 16),
+                                    ),
+                                    SizedBox(width: 10),
+                                    ElevatedButton(
+                                      onPressed: _paginaAtual < _totalPaginas ? () => _buscarAlimentos(pagina: _paginaAtual + 1) : null,
+                                      child: Icon(Icons.arrow_forward_ios, size: 16),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

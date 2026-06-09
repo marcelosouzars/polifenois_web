@@ -3,7 +3,7 @@ import 'login_web.dart';
 
 void main() {
   runApp(MaterialApp(
-    title: 'Vetix Polifenóis',
+    title: 'Polifenóis',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(primarySwatch: Colors.blue),
     home: LoginWeb(), 

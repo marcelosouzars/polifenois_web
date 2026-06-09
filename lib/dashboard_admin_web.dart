@@ -24,7 +24,6 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     _carregarPacientes();
   }
 
-  // A GRANDE CORREÇÃO: Bloco finally adicionado para forçar a parada do loading
   Future<void> _carregarPacientes() async {
     setState(() => _loading = true);
     try {
@@ -45,6 +44,100 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  // =========================================================================
+  // CRUD DE PACIENTES: MODAL DE INCLUSÃO E EDIÇÃO
+  // =========================================================================
+  void _abrirModalPaciente({Map<String, dynamic>? paciente}) {
+    bool isEdicao = paciente != null;
+    TextEditingController nomeCtrl = TextEditingController(text: isEdicao ? (paciente['nome'] ?? '') : '');
+    TextEditingController cpfCtrl = TextEditingController(text: isEdicao ? (paciente['cpf'] ?? '') : '');
+    TextEditingController emailCtrl = TextEditingController(text: isEdicao ? (paciente['email'] ?? '') : '');
+    TextEditingController semanaCtrl = TextEditingController(text: isEdicao ? (paciente['semana_gestacao']?.toString() ?? '') : '');
+    TextEditingController senhaCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isEdicao ? "Editar Paciente" : "Incluir Nova Paciente", style: TextStyle(color: PolifenoisTema.azulPrimario)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person)),
+            SizedBox(height: 15),
+            TextField(controller: cpfCtrl, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge)),
+            SizedBox(height: 15),
+            TextField(controller: emailCtrl, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email)),
+            SizedBox(height: 15),
+            TextField(controller: semanaCtrl, decoration: PolifenoisTema.inputDecoracao("Semana de Gestação", Icons.calendar_month), keyboardType: TextInputType.number),
+            if (!isEdicao) ...[
+              SizedBox(height: 15),
+              TextField(controller: senhaCtrl, decoration: PolifenoisTema.inputDecoracao("Senha de Acesso", Icons.lock), obscureText: true),
+            ]
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR")),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _salvarPaciente(isEdicao ? paciente['id'] : null, nomeCtrl.text, cpfCtrl.text, emailCtrl.text, semanaCtrl.text, senhaCtrl.text, !isEdicao);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+            child: Text("SALVAR", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _salvarPaciente(int? id, String nome, String cpf, String email, String semana, String senha, bool isNovo) async {
+    setState(() => _loading = true);
+    try {
+      Uri url = isNovo 
+          ? Uri.parse("https://polifenois-backend.onrender.com/paciente-admin")
+          : Uri.parse("https://polifenois-backend.onrender.com/pacientes/$id");
+
+      var bodyData = {"nome": nome, "cpf": cpf, "email": email, "semana_gestacao": semana};
+      if (isNovo) bodyData["senha"] = senha;
+
+      var response = isNovo 
+          ? await http.post(url, headers: {"Content-Type": "application/json"}, body: jsonEncode(bodyData))
+          : await http.put(url, headers: {"Content-Type": "application/json"}, body: jsonEncode(bodyData));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _carregarPacientes();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Paciente salva com sucesso!"), backgroundColor: Colors.green));
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _confirmarExclusaoPaciente(int id, String nome) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Confirmar Exclusão"),
+        content: Text("Deseja apagar permanentemente a paciente '$nome' e todo o seu histórico de refeições?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _pacientes.removeWhere((p) => p['id'] == id));
+              await http.delete(Uri.parse("https://polifenois-backend.onrender.com/pacientes/$id"));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Paciente excluída."), backgroundColor: Colors.redAccent));
+            },
+            child: Text("EXCLUIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmarLiberacao(int idPaciente) {
@@ -206,7 +299,20 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Visão Geral de Pacientes", style: PolifenoisTema.tituloEstilo),
+                  Row(
+                    children: [
+                      Text("Visão Geral de Pacientes", style: PolifenoisTema.tituloEstilo),
+                      Spacer(),
+                      IconButton(icon: Icon(Icons.refresh, color: PolifenoisTema.azulPrimario), onPressed: _carregarPacientes),
+                      SizedBox(width: 15),
+                      ElevatedButton.icon(
+                        onPressed: () => _abrirModalPaciente(), 
+                        icon: Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+                        label: Text("INCLUIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade600, padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15)),
+                      ),
+                    ],
+                  ),
                   SizedBox(height: 20),
                   Expanded(
                     child: Card(
@@ -244,17 +350,30 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                                               )
                                             ),
                                             DataCell(
-                                              validado
-                                                ? Row(children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 5), Text("Liberado")])
-                                                : ElevatedButton.icon(
-                                                    icon: Icon(Icons.key, size: 16),
-                                                    label: Text("Liberar Acesso"),
-                                                    onPressed: () => _confirmarLiberacao(p['id']),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: PolifenoisTema.azulPrimario,
-                                                      foregroundColor: Colors.white,
-                                                    ),
-                                                  )
+                                              Row(
+                                                children: [
+                                                  IconButton(
+                                                    icon: Icon(Icons.edit, color: PolifenoisTema.azulPrimario),
+                                                    tooltip: "Editar Paciente",
+                                                    onPressed: () => _abrirModalPaciente(paciente: p),
+                                                  ),
+                                                  IconButton(
+                                                    icon: Icon(Icons.delete_forever, color: Colors.red),
+                                                    tooltip: "Excluir Paciente",
+                                                    onPressed: () => _confirmarExclusaoPaciente(p['id'], p['nome']),
+                                                  ),
+                                                  if (!validado)
+                                                    ElevatedButton.icon(
+                                                      icon: Icon(Icons.key, size: 16),
+                                                      label: Text("Liberar Acesso"),
+                                                      onPressed: () => _confirmarLiberacao(p['id']),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: PolifenoisTema.azulPrimario,
+                                                        foregroundColor: Colors.white,
+                                                      ),
+                                                    )
+                                                ],
+                                              )
                                             ),
                                           ]
                                         );

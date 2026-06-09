@@ -160,50 +160,48 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   }
 
   // =========================================================================
-  // GERAÇÃO DE PDF E IMPRESSÃO (NOVIDADE!)
+  // GERAÇÃO DE PDF E IMPRESSÃO (CORRIGIDO PARA MULTIPAGE)
   // =========================================================================
   Future<void> _imprimirLista() async {
     final pdf = pw.Document();
 
+    // A MÁGICA: Usar MultiPage faz o Flutter criar páginas infinitas automaticamente
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
+        margin: pw.EdgeInsets.all(32),
         build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text("Relatório - Base Global de Alimentos", style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-              pw.SizedBox(height: 10),
-              pw.Text("Gerado pelo Sistema Polifenóis Vetix", style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700)),
-              pw.SizedBox(height: 20),
-              pw.TableHelper.fromTextArray(
-                headers: ['Origem', 'Código', 'Categoria', 'Nome / Composto', 'Polifenóis'],
-                data: _alimentos.map((a) {
-                  String nome = a['nome_alimento']?.toString() ?? 'N/A';
-                  if (a['compound'] != null && a['compound'].toString().trim().isNotEmpty) {
-                    nome += " (${a['compound']})";
-                  }
-                  return [
-                    a['origem_dados']?.toString() ?? 'BRA',
-                    a['codigo_origem']?.toString() ?? '-',
-                    a['categoria']?.toString() ?? 'Geral',
-                    nome,
-                    "${a['polifenois_mg_100g']?.toString() ?? '0'} ${a['units'] ?? 'mg'}"
-                  ];
-                }).toList(),
-                border: pw.TableBorder.all(color: PdfColors.grey400),
-                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
-                headerDecoration: pw.BoxDecoration(color: PdfColors.blue800),
-                cellStyle: pw.TextStyle(fontSize: 10),
-                cellAlignment: pw.Alignment.centerLeft,
-              ),
-            ],
-          );
+          return [
+            pw.Text("Relatório - Base Global de Alimentos", style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
+            pw.SizedBox(height: 10),
+            pw.Text("Gerado pelo Sistema Polifenóis Vetix", style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700)),
+            pw.SizedBox(height: 20),
+            pw.TableHelper.fromTextArray(
+              headers: ['Origem', 'Código', 'Categoria', 'Nome / Composto', 'Polifenóis'],
+              data: _alimentos.map((a) {
+                String nome = a['nome_alimento']?.toString() ?? 'N/A';
+                if (a['compound'] != null && a['compound'].toString().trim().isNotEmpty) {
+                  nome += " (${a['compound']})";
+                }
+                return [
+                  a['origem_dados']?.toString() ?? 'BRA',
+                  a['codigo_origem']?.toString() ?? '-',
+                  a['categoria']?.toString() ?? 'Geral',
+                  nome,
+                  "${a['polifenois_mg_100g']?.toString() ?? '0'} ${a['units'] ?? 'mg'}"
+                ];
+              }).toList(),
+              border: pw.TableBorder.all(color: PdfColors.grey400),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerDecoration: pw.BoxDecoration(color: PdfColors.blue800),
+              cellStyle: pw.TextStyle(fontSize: 10),
+              cellAlignment: pw.Alignment.centerLeft,
+            ),
+          ];
         },
       ),
     );
 
-    // Chama a janela nativa do navegador para imprimir ou salvar em PDF
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
       name: 'Relatorio_Alimentos_Vetix.pdf',
@@ -320,7 +318,6 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
                             ),
                           ),
                           
-                          // RODAPÉ: BOTÃO DE IMPRESSÃO REAL AQUI
                           Container(
                             padding: EdgeInsets.all(15),
                             decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade300))),
@@ -328,7 +325,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 ElevatedButton.icon(
-                                  onPressed: _imprimirLista, // CHAMADA DA FUNÇÃO PDF REAL
+                                  onPressed: _imprimirLista,
                                   icon: Icon(Icons.print, size: 18, color: Colors.white),
                                   label: Text("IMPRIMIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                   style: ElevatedButton.styleFrom(

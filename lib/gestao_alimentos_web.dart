@@ -53,15 +53,18 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     bool isEdicao = alimento != null;
     TextEditingController nomeCtrl = TextEditingController(text: isEdicao ? (alimento['nome_alimento'] ?? '') : '');
     TextEditingController poliCtrl = TextEditingController(text: isEdicao ? alimento['polifenois_mg_100g'].toString() : '');
+    TextEditingController compoundCtrl = TextEditingController(text: isEdicao ? (alimento['compound'] ?? '') : '');
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isEdicao ? "Editar Alimento" : "Novo Alimento Brasileiro"),
+        title: Text(isEdicao ? "Editar Registro" : "Novo Registro"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome", Icons.fastfood)),
+            TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome do Alimento", Icons.fastfood)),
+            SizedBox(height: 15),
+            TextField(controller: compoundCtrl, decoration: PolifenoisTema.inputDecoracao("Composto Químico", Icons.biotech)),
             SizedBox(height: 15),
             TextField(controller: poliCtrl, decoration: PolifenoisTema.inputDecoracao("Polifenóis (mg/100g)", Icons.science), keyboardType: TextInputType.number),
           ],
@@ -79,7 +82,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              await _salvarAlimento(isEdicao ? alimento['codigo_origem'] : null, nomeCtrl.text, poliCtrl.text, !isEdicao);
+              await _salvarAlimento(isEdicao ? alimento['codigo_origem'] : null, nomeCtrl.text, poliCtrl.text, compoundCtrl.text, !isEdicao);
             },
             style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
             child: Text("SALVAR", style: TextStyle(color: Colors.white)),
@@ -89,7 +92,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     );
   }
 
-  Future<void> _salvarAlimento(String? codOrigem, String nome, String poli, bool isNovo) async {
+  Future<void> _salvarAlimento(String? codOrigem, String nome, String poli, String compound, bool isNovo) async {
     setState(() => _carregando = true);
     try {
       Uri url = isNovo 
@@ -97,8 +100,8 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
           : Uri.parse("https://polifenois-backend.onrender.com/base-nutricional/$codOrigem");
 
       var response = isNovo 
-          ? await http.post(url, headers: {"Content-Type": "application/json"}, body: jsonEncode({"nome": nome, "total_polifenois": poli, "origem_dados": "BRA"}))
-          : await http.put(url, headers: {"Content-Type": "application/json"}, body: jsonEncode({"nome": nome, "total_polifenois": poli}));
+          ? await http.post(url, headers: {"Content-Type": "application/json"}, body: jsonEncode({"nome": nome, "total_polifenois": poli, "compound": compound, "origem_dados": "BRA"}))
+          : await http.put(url, headers: {"Content-Type": "application/json"}, body: jsonEncode({"nome": nome, "total_polifenois": poli, "compound": compound}));
 
       if (response.statusCode == 200) {
         _buscarAlimentos(pagina: _paginaAtual);
@@ -111,12 +114,9 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   }
 
   Future<void> _excluirAlimento(String codOrigem) async {
-    // Truque visual: Remove da tela instantaneamente
     setState(() {
       _alimentos.removeWhere((a) => a['codigo_origem'] == codOrigem);
     });
-
-    // Avisa o backend por baixo dos panos
     try {
       await http.delete(Uri.parse("https://polifenois-backend.onrender.com/base-nutricional/$codOrigem"));
     } catch (e) {
@@ -128,7 +128,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PolifenoisTema.azulClaroFundo,
-      appBar: AppBar(title: Text("Super Base Nutricional", style: TextStyle(color: Colors.white)), backgroundColor: PolifenoisTema.azulPrimario, iconTheme: IconThemeData(color: Colors.white)),
+      appBar: AppBar(title: Text("Super Base Nutricional Global", style: TextStyle(color: Colors.white)), backgroundColor: PolifenoisTema.azulPrimario, iconTheme: IconThemeData(color: Colors.white)),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _abrirModalAlimento(),
         backgroundColor: PolifenoisTema.azulPrimario,
@@ -140,7 +140,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
           children: [
             Row(
               children: [
-                Expanded(child: TextField(controller: _buscaController, decoration: PolifenoisTema.inputDecoracao("Buscar por alimento...", Icons.search))),
+                Expanded(child: TextField(controller: _buscaController, decoration: PolifenoisTema.inputDecoracao("Buscar por alimento ou composto químico...", Icons.search), onSubmitted: (_) => _buscarAlimentos(pagina: 1))),
                 SizedBox(width: 15),
                 DropdownButton<String>(
                   value: _filtroOrigem,
@@ -162,32 +162,66 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 child: _carregando 
                   ? Center(child: CircularProgressIndicator(color: PolifenoisTema.azulPrimario)) 
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: Container(
-                        width: double.infinity,
-                        child: DataTable(
-                          headingRowColor: MaterialStateProperty.resolveWith((states) => PolifenoisTema.azulClaroFundo),
-                          columns: [
-                            DataColumn(label: Text("Origem", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
-                            DataColumn(label: Text("Código", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
-                            DataColumn(label: Text("Nome do Alimento", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
-                            DataColumn(label: Text("Polifenóis (mg)", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
-                            DataColumn(label: Text("Ações", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
-                          ],
-                          rows: _alimentos.map((a) => DataRow(cells: [
-                            DataCell(Chip(
-                              label: Text(a['origem_dados']?.toString() ?? 'BRA', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                              backgroundColor: a['origem_dados'] == 'EUR' ? Colors.blue : (a['origem_dados'] == 'USA' ? Colors.red : Colors.green),
-                            )),
-                            DataCell(Text(a['codigo_origem']?.toString() ?? '-')),
-                            DataCell(Text(a['nome_alimento']?.toString() ?? 'N/A')),
-                            DataCell(Text(a['polifenois_mg_100g']?.toString() ?? '0')),
-                            DataCell(IconButton(icon: Icon(Icons.edit, color: PolifenoisTema.azulPrimario), onPressed: () => _abrirModalAlimento(alimento: a)))
-                          ])).toList(),
-                        ),
+                  : _alimentos.isEmpty
+                    ? Center(child: Text("Nenhum registro encontrado.", style: PolifenoisTema.corpoEstilo))
+                    : Column(
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.vertical,
+                              child: Container(
+                                width: double.infinity,
+                                child: DataTable(
+                                  headingRowColor: MaterialStateProperty.resolveWith((states) => PolifenoisTema.azulClaroFundo),
+                                  columns: [
+                                    DataColumn(label: Text("Origem", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
+                                    DataColumn(label: Text("Código", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
+                                    DataColumn(label: Text("Nome do Alimento / Composto", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
+                                    DataColumn(label: Text("Polifenóis", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
+                                    DataColumn(label: Text("Ações", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
+                                  ],
+                                  rows: _alimentos.map((a) {
+                                    String exibicaoNome = a['nome_alimento']?.toString() ?? 'N/A';
+                                    if (a['compound'] != null && a['compound'].toString().trim().isNotEmpty) {
+                                      exibicaoNome += " (${a['compound']})";
+                                    }
+                                    return DataRow(cells: [
+                                      DataCell(Chip(
+                                        label: Text(a['origem_dados']?.toString() ?? 'BRA', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                        backgroundColor: a['origem_dados'] == 'EUR' ? Colors.blue : (a['origem_dados'] == 'USA' ? Colors.red : Colors.green),
+                                      )),
+                                      DataCell(Text(a['codigo_origem']?.toString() ?? '-')),
+                                      DataCell(Text(exibicaoNome)),
+                                      DataCell(Text("${a['polifenois_mg_100g']?.toString() ?? '0'} ${a['units'] ?? 'mg'}")),
+                                      DataCell(IconButton(icon: Icon(Icons.edit, color: PolifenoisTema.azulPrimario), onPressed: () => _abrirModalAlimento(alimento: a)))
+                                    ]);
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.all(15),
+                            decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade300))),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text("Página $_paginaAtual de $_totalPaginas"),
+                                SizedBox(width: 20),
+                                ElevatedButton(
+                                  onPressed: _paginaAtual > 1 ? () => _buscarAlimentos(pagina: _paginaAtual - 1) : null,
+                                  child: Icon(Icons.arrow_back_ios, size: 16),
+                                ),
+                                SizedBox(width: 10),
+                                ElevatedButton(
+                                  onPressed: _paginaAtual < _totalPaginas ? () => _buscarAlimentos(pagina: _paginaAtual + 1) : null,
+                                  child: Icon(Icons.arrow_forward_ios, size: 16),
+                                ),
+                              ],
+                            ),
+                          )
+                        ],
                       ),
-                    ),
               ),
             ),
           ],

@@ -16,7 +16,7 @@ class DashboardMasterWeb extends StatefulWidget {
 }
 
 class _DashboardMasterWebState extends State<DashboardMasterWeb> {
-  int _indiceMenu = 0; // 0 = Estatísticas, 1 = Gestantes
+  int _indiceMenu = 0; 
   Map<String, dynamic>? _stats;
   List<dynamic> _pacientes = [];
   bool _carregandoStats = true;
@@ -29,9 +29,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     _buscarEstatisticas();
   }
 
-  // =========================================================================
-  // SISTEMA DE NAVEGAÇÃO E RECARREGAMENTO
-  // =========================================================================
   void _mudarAba(int indice) {
     setState(() => _indiceMenu = indice);
     if (indice == 0) {
@@ -58,9 +55,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     );
   }
 
-  // =========================================================================
-  // ESTATÍSTICAS
-  // =========================================================================
   Future<void> _buscarEstatisticas() async {
     setState(() => _carregandoStats = true);
     try {
@@ -81,9 +75,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     }
   }
 
-  // =========================================================================
-  // LISTA DE GESTANTES E LIBERAÇÃO
-  // =========================================================================
   Future<void> _carregarPacientes() async {
     setState(() => _carregandoPacientes = true);
     try {
@@ -155,9 +146,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     }
   }
 
-  // =========================================================================
-  // FOTO DE PERFIL
-  // =========================================================================
   Future<void> _selecionarFoto() async {
     try {
       final ImagePicker _picker = ImagePicker();
@@ -199,9 +187,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     return valor.toString();
   }
 
-  // =========================================================================
-  // WIDGETS DE TELA
-  // =========================================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -124,7 +124,7 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
   }
 
   // =========================================================================
-  // LÓGICA DE EXCLUSÃO COM TRUQUE DE INTERFACE (OTIMISTA)
+  // LÓGICA DE EXCLUSÃO
   // =========================================================================
   Future<void> _confirmarExclusao(String codOrigem, String nomeAlimento) async {
     showDialog(
@@ -176,18 +176,17 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
     return Scaffold(
       backgroundColor: PolifenoisTema.azulClaroFundo,
       appBar: AppBar(title: Text("Base Global de Alimentos", style: TextStyle(color: Colors.white)), backgroundColor: PolifenoisTema.azulPrimario, iconTheme: IconThemeData(color: Colors.white)),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _abrirModalAlimento(),
-        backgroundColor: PolifenoisTema.azulPrimario,
-        child: Icon(Icons.add, color: Colors.white),
-      ),
       body: Padding(
         padding: EdgeInsets.all(30),
         child: Column(
           children: [
+            // =========================================================
+            // TOPO: BARRA DE BUSCA MENOR + BOTÃO INCLUIR
+            // =========================================================
             Row(
               children: [
                 Expanded(
+                  flex: 3, // Controla a largura do campo de busca para não ficar gigante
                   child: TextField(
                     controller: _buscaController, 
                     decoration: PolifenoisTema.inputDecoracao("Buscar por alimento, composto ou categoria...", Icons.search), 
@@ -195,20 +194,38 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
                   )
                 ),
                 SizedBox(width: 15),
-                DropdownButton<String>(
-                  value: _filtroOrigem,
-                  items: ["TODOS", "EUR", "USA", "BRA"].map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
-                  onChanged: (v) { setState(() => _filtroOrigem = v!); _buscarAlimentos(); },
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.blue.shade100)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _filtroOrigem,
+                      items: ["TODOS", "EUR", "USA", "BRA"].map((o) => DropdownMenuItem(value: o, child: Text(o, style: TextStyle(fontWeight: FontWeight.bold)))).toList(),
+                      onChanged: (v) { setState(() => _filtroOrigem = v!); _buscarAlimentos(); },
+                    ),
+                  ),
                 ),
                 SizedBox(width: 15),
-                ElevatedButton(
+                ElevatedButton.icon(
                   onPressed: () => _buscarAlimentos(pagina: 1), 
+                  icon: Icon(Icons.search, color: Colors.white, size: 18),
+                  label: Text("BUSCAR", style: TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, padding: EdgeInsets.symmetric(horizontal: 25, vertical: 20)),
-                  child: Text("BUSCAR", style: TextStyle(color: Colors.white))
+                ),
+                SizedBox(width: 15),
+                ElevatedButton.icon(
+                  onPressed: () => _abrirModalAlimento(), 
+                  icon: Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+                  label: Text("INCLUIR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade600, padding: EdgeInsets.symmetric(horizontal: 25, vertical: 20)),
                 ),
               ],
             ),
             SizedBox(height: 20),
+            
+            // =========================================================
+            // TABELA DE DADOS
+            // =========================================================
             Expanded(
               child: Card(
                 elevation: 4,
@@ -270,13 +287,16 @@ class _GestaoAlimentosWebState extends State<GestaoAlimentosWeb> {
                               ),
                             ),
                           ),
+                          
+                          // =========================================================
+                          // RODAPÉ: BOTÃO DE IMPRESSÃO E PAGINAÇÃO
+                          // =========================================================
                           Container(
                             padding: EdgeInsets.all(15),
                             decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.grey.shade300))),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // BOTÃO DE IMPRIMIR AQUI NO RODAPÉ
                                 ElevatedButton.icon(
                                   onPressed: _simularImpressao,
                                   icon: Icon(Icons.print, size: 18, color: Colors.white),

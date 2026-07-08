@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:async';
+import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
@@ -16,17 +18,30 @@ class DashboardMasterWeb extends StatefulWidget {
 }
 
 class _DashboardMasterWebState extends State<DashboardMasterWeb> {
-  int _indiceMenu = 0; 
+  int _indiceMenu = 0;
   Map<String, dynamic>? _stats;
   List<dynamic> _pacientes = [];
   bool _carregandoStats = true;
   bool _carregandoPacientes = true;
   Uint8List? _fotoPerfilBytes;
 
+  // --- RELÓGIO DO TOPO ---
+  Timer? _relogioTimer;
+  DateTime _agora = DateTime.now();
+
   @override
   void initState() {
     super.initState();
     _buscarEstatisticas();
+    _relogioTimer = Timer.periodic(Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _agora = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _relogioTimer?.cancel();
+    super.dispose();
   }
 
   void _mudarAba(int indice) {
@@ -99,7 +114,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   // =========================================================================
   void _abrirModalPaciente({Map<String, dynamic>? paciente}) {
     bool isEdicao = paciente != null;
-    
+
     // Controladores - Dados Pessoais
     TextEditingController nomeCtrl = TextEditingController(text: isEdicao ? (paciente['nome'] ?? '') : '');
     TextEditingController cpfCtrl = TextEditingController(text: isEdicao ? (paciente['cpf'] ?? '') : '');
@@ -128,6 +143,26 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     TextEditingController crnCtrl = TextEditingController(text: isEdicao ? (paciente['crn_nutricionista'] ?? '') : '');
     TextEditingController senhaCtrl = TextEditingController();
 
+    // --- FOTO DA PACIENTE (NOVO) ---
+    Uint8List? fotoPacienteBytes;
+
+    Future<void> selecionarFotoPaciente(StateSetter setModalState) async {
+      try {
+        final ImagePicker picker = ImagePicker();
+        final XFile? imagem = await picker.pickImage(source: ImageSource.gallery, maxWidth: 500, maxHeight: 500, imageQuality: 85);
+        if (imagem != null) {
+          final bytes = await imagem.readAsBytes();
+          setModalState(() { fotoPacienteBytes = bytes; });
+          final base64Foto = base64Encode(bytes);
+          await http.put(
+            Uri.parse("https://polifenois-backend.onrender.com/atualizar-foto-perfil"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"usuario_id": paciente!['id'], "foto_base64": base64Foto}),
+          );
+        }
+      } catch (e) { print("Erro ao selecionar foto da paciente: $e"); }
+    }
+
     // Variaveis da Galeria de Fotos
     List<dynamic> refeicoes = [];
     bool carregandoRefeicoes = isEdicao;
@@ -136,7 +171,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          
+
           // Se for edição e ainda não carregou as refeições, busca no backend
           if (isEdicao && carregandoRefeicoes && refeicoes.isEmpty) {
             http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes-gestante/${paciente['id']}")).then((res) {
@@ -163,13 +198,59 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       child: Text("1. DADOS PESSOAIS", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
                     ),
                     SizedBox(height: 15),
-                    Row(children: [
-                      Expanded(flex: 2, child: TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: cpfCtrl, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: rgCtrl, decoration: PolifenoisTema.inputDecoracao("RG", Icons.fingerprint))),
-                    ]),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Column(
+                            children: [
+                              TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person)),
+                              SizedBox(height: 10),
+                              TextField(controller: cpfCtrl, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge)),
+                              SizedBox(height: 10),
+                              TextField(controller: rgCtrl, decoration: PolifenoisTema.inputDecoracao("RG", Icons.fingerprint)),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 20),
+                        Column(
+                          children: [
+                            GestureDetector(
+                              onTap: isEdicao ? () => selecionarFotoPaciente(setModalState) : null,
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    width: 110, height: 110,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.grey.shade200,
+                                      image: fotoPacienteBytes != null
+                                        ? DecorationImage(image: MemoryImage(fotoPacienteBytes!), fit: BoxFit.cover)
+                                        : (isEdicao && paciente!['foto_perfil_url'] != null && paciente['foto_perfil_url'].toString().length > 100
+                                            ? DecorationImage(image: MemoryImage(base64Decode(paciente['foto_perfil_url'])), fit: BoxFit.cover)
+                                            : null),
+                                    ),
+                                    child: (fotoPacienteBytes == null && (!isEdicao || paciente!['foto_perfil_url'] == null || paciente['foto_perfil_url'].toString().length < 100))
+                                      ? Icon(Icons.person, size: 55, color: Colors.grey.shade400)
+                                      : null,
+                                  ),
+                                  if (isEdicao)
+                                    Positioned(
+                                      bottom: 0, right: 0,
+                                      child: CircleAvatar(radius: 16, backgroundColor: PolifenoisTema.azulPrimario,
+                                        child: Icon(Icons.camera_alt, size: 16, color: Colors.white)),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 6),
+                            Text(isEdicao ? "Toque para alterar" : "Salve o cadastro\npara adicionar foto",
+                              style: TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                          ],
+                        ),
+                      ],
+                    ),
                     SizedBox(height: 10),
                     Row(children: [
                       Expanded(child: TextField(controller: nascCtrl, decoration: PolifenoisTema.inputDecoracao("Nascimento (AAAA-MM-DD)", Icons.calendar_today))),
@@ -302,11 +383,11 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                 onPressed: () async {
                   Navigator.pop(context);
                   await _salvarPaciente(
-                    isEdicao ? paciente['id'] : null, 
+                    isEdicao ? paciente['id'] : null,
                     nomeCtrl.text, cpfCtrl.text, emailCtrl.text, semanaCtrl.text, senhaCtrl.text, !isEdicao,
                     rg: rgCtrl.text, nasc: nascCtrl.text, idade: idadeCtrl.text, cel: celCtrl.text, fixo: fixoCtrl.text,
                     cep: cepCtrl.text, log: logradouroCtrl.text, num: numCtrl.text, comp: compCtrl.text, est: estadoCtrl.text,
-                    nac: nacioCtrl.text, nat: naturCtrl.text, mae: maeCtrl.text, 
+                    nac: nacioCtrl.text, nat: naturCtrl.text, mae: maeCtrl.text,
                     med: medCtrl.text, crm: crmCtrl.text, nut: nutriCtrl.text, crn: crnCtrl.text
                   );
                 },
@@ -320,13 +401,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     );
   }
 
-  Future<void> _salvarPaciente(int? id, String nome, String cpf, String email, String semana, String senha, bool isNovo, 
-    {String? rg, String? nasc, String? idade, String? cel, String? fixo, String? cep, String? log, String? num, String? comp, 
+  Future<void> _salvarPaciente(int? id, String nome, String cpf, String email, String semana, String senha, bool isNovo,
+    {String? rg, String? nasc, String? idade, String? cel, String? fixo, String? cep, String? log, String? num, String? comp,
      String? est, String? nac, String? nat, String? mae, String? med, String? crm, String? nut, String? crn}) async {
-    
+
     setState(() => _carregandoPacientes = true);
     try {
-      Uri url = isNovo 
+      Uri url = isNovo
           ? Uri.parse("https://polifenois-backend.onrender.com/paciente-admin")
           : Uri.parse("https://polifenois-backend.onrender.com/pacientes/$id");
 
@@ -339,7 +420,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       };
       if (isNovo) bodyData["senha"] = senha;
 
-      var response = isNovo 
+      var response = isNovo
           ? await http.post(url, headers: {"Content-Type": "application/json"}, body: jsonEncode(bodyData))
           : await http.put(url, headers: {"Content-Type": "application/json"}, body: jsonEncode(bodyData));
 
@@ -416,7 +497,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       );
       if (response.statusCode == 200) {
         Navigator.pop(context);
-        _carregarPacientes(); 
+        _carregarPacientes();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Acesso liberado com sucesso!"), backgroundColor: Colors.green));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro: Senha incorreta."), backgroundColor: Colors.red));
@@ -430,7 +511,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     try {
       final ImagePicker _picker = ImagePicker();
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery, maxWidth: 500, maxHeight: 500, imageQuality: 85);
-      
+
       if (image != null) {
         final bytes = await image.readAsBytes();
         bool? confirmar = await showDialog<bool>(
@@ -471,87 +552,104 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color(0xFFF4F7F6),
-      body: Row(
+      body: Column(
         children: [
           Container(
-            width: 280,
-            color: Color(0xFF1A237E),
-            child: Column(
+            height: 34,
+            color: Colors.white,
+            alignment: Alignment.centerRight,
+            padding: EdgeInsets.only(right: 24),
+            child: Text(
+              DateFormat('dd/MM/yyyy HH:mm:ss').format(_agora),
+              style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Divider(height: 1, thickness: 1.2, color: Colors.black87),
+          Expanded(
+            child: Row(
               children: [
-                DrawerHeader(
+                Container(
+                  width: 280,
+                  color: Color(0xFF1A237E),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundColor: Colors.white24,
-                            backgroundImage: _fotoPerfilBytes != null 
-                              ? MemoryImage(_fotoPerfilBytes!) 
-                              : (widget.usuario['foto_perfil_url'] != null && widget.usuario['foto_perfil_url'].toString().length > 100
-                                  ? MemoryImage(base64Decode(widget.usuario['foto_perfil_url']))
-                                  : null),
-                            child: (_fotoPerfilBytes == null && (widget.usuario['foto_perfil_url'] == null || widget.usuario['foto_perfil_url'].toString().length < 100))
-                                ? Icon(Icons.person, size: 50, color: Colors.white)
-                                : null,
-                          ),
-                          Positioned(
-                            bottom: 0, right: 0,
-                            child: GestureDetector(
-                              onTap: _selecionarFoto,
-                              child: CircleAvatar(
-                                radius: 15,
-                                backgroundColor: Colors.amber,
-                                child: Icon(Icons.camera_alt, size: 15, color: Colors.black),
-                              ),
+                      DrawerHeader(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Stack(
+                              children: [
+                                CircleAvatar(
+                                  radius: 40,
+                                  backgroundColor: Colors.white24,
+                                  backgroundImage: _fotoPerfilBytes != null
+                                    ? MemoryImage(_fotoPerfilBytes!)
+                                    : (widget.usuario['foto_perfil_url'] != null && widget.usuario['foto_perfil_url'].toString().length > 100
+                                        ? MemoryImage(base64Decode(widget.usuario['foto_perfil_url']))
+                                        : null),
+                                  child: (_fotoPerfilBytes == null && (widget.usuario['foto_perfil_url'] == null || widget.usuario['foto_perfil_url'].toString().length < 100))
+                                      ? Icon(Icons.person, size: 50, color: Colors.white)
+                                      : null,
+                                ),
+                                Positioned(
+                                  bottom: 0, right: 0,
+                                  child: GestureDetector(
+                                    onTap: _selecionarFoto,
+                                    child: CircleAvatar(
+                                      radius: 15,
+                                      backgroundColor: Colors.amber,
+                                      child: Icon(Icons.camera_alt, size: 15, color: Colors.black),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            SizedBox(height: 10),
+                            Text("PAINEL MASTER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            Text(widget.usuario['nome'] ?? 'Master', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          ],
+                        ),
                       ),
-                      SizedBox(height: 10),
-                      Text("PAINEL MASTER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      Text(widget.usuario['nome'] ?? 'Master', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ListTile(
+                        leading: Icon(Icons.analytics, color: _indiceMenu == 0 ? Colors.white : Colors.white54),
+                        title: Text("Estatísticas Gerais", style: TextStyle(color: _indiceMenu == 0 ? Colors.white : Colors.white54, fontWeight: _indiceMenu == 0 ? FontWeight.bold : FontWeight.normal)),
+                        onTap: () => _mudarAba(0),
+                        tileColor: _indiceMenu == 0 ? Colors.white.withOpacity(0.1) : Colors.transparent,
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.people, color: _indiceMenu == 1 ? Colors.white : Colors.white54),
+                        title: Text("Lista de Gestantes", style: TextStyle(color: _indiceMenu == 1 ? Colors.white : Colors.white54, fontWeight: _indiceMenu == 1 ? FontWeight.bold : FontWeight.normal)),
+                        onTap: () => _mudarAba(1),
+                        tileColor: _indiceMenu == 1 ? Colors.white.withOpacity(0.1) : Colors.transparent,
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.kitchen, color: Colors.white54),
+                        title: Text("Base Global de Alimentos", style: TextStyle(color: Colors.white54)),
+                        onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (c) => GestaoAlimentosWeb(usuario: widget.usuario)));
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.settings, color: Colors.white54),
+                        title: Text("Configurações", style: TextStyle(color: Colors.white54)),
+                        onTap: () => _mostrarAvisoDesenvolvimento(),
+                      ),
+                      Spacer(),
+                      ListTile(
+                        leading: Icon(Icons.logout, color: Colors.redAccent),
+                        title: Text("Sair", style: TextStyle(color: Colors.redAccent)),
+                        onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => LoginWeb())),
+                      ),
+                      SizedBox(height: 20),
                     ],
                   ),
                 ),
-                ListTile(
-                  leading: Icon(Icons.analytics, color: _indiceMenu == 0 ? Colors.white : Colors.white54),
-                  title: Text("Estatísticas Gerais", style: TextStyle(color: _indiceMenu == 0 ? Colors.white : Colors.white54, fontWeight: _indiceMenu == 0 ? FontWeight.bold : FontWeight.normal)),
-                  onTap: () => _mudarAba(0),
-                  tileColor: _indiceMenu == 0 ? Colors.white.withOpacity(0.1) : Colors.transparent,
+
+                Expanded(
+                  child: _indiceMenu == 0 ? _buildEstatisticas() : _buildListaGestantes(),
                 ),
-                ListTile(
-                  leading: Icon(Icons.people, color: _indiceMenu == 1 ? Colors.white : Colors.white54),
-                  title: Text("Lista de Gestantes", style: TextStyle(color: _indiceMenu == 1 ? Colors.white : Colors.white54, fontWeight: _indiceMenu == 1 ? FontWeight.bold : FontWeight.normal)),
-                  onTap: () => _mudarAba(1),
-                  tileColor: _indiceMenu == 1 ? Colors.white.withOpacity(0.1) : Colors.transparent,
-                ),
-                ListTile(
-                  leading: Icon(Icons.kitchen, color: Colors.white54),
-                  title: Text("Base Global de Alimentos", style: TextStyle(color: Colors.white54)),
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (c) => GestaoAlimentosWeb(usuario: widget.usuario)));
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.settings, color: Colors.white54),
-                  title: Text("Configurações", style: TextStyle(color: Colors.white54)),
-                  onTap: () => _mostrarAvisoDesenvolvimento(),
-                ),
-                Spacer(),
-                ListTile(
-                  leading: Icon(Icons.logout, color: Colors.redAccent),
-                  title: Text("Sair", style: TextStyle(color: Colors.redAccent)),
-                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => LoginWeb())),
-                ),
-                SizedBox(height: 20),
               ],
             ),
-          ),
-          
-          Expanded(
-            child: _indiceMenu == 0 ? _buildEstatisticas() : _buildListaGestantes(),
           ),
         ],
       ),
@@ -572,7 +670,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             children: [
               Text("Monitoramento Estratégico", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
               IconButton(
-                icon: Icon(Icons.refresh, color: Color(0xFF1A237E)), 
+                icon: Icon(Icons.refresh, color: Color(0xFF1A237E)),
                 onPressed: _buscarEstatisticas
               ),
             ],
@@ -627,7 +725,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
               IconButton(icon: Icon(Icons.refresh, color: Color(0xFF1A237E)), onPressed: _carregarPacientes),
               SizedBox(width: 15),
               ElevatedButton.icon(
-                onPressed: () => _abrirModalPaciente(), 
+                onPressed: () => _abrirModalPaciente(),
                 icon: Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
                 label: Text("INCLUIR PACIENTE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade600, padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15)),

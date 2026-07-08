@@ -21,9 +21,28 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   int _indiceMenu = 0;
   Map<String, dynamic>? _stats;
   List<dynamic> _pacientes = [];
+  List<dynamic> _pacientesFiltradas = [];
   bool _carregandoStats = true;
   bool _carregandoPacientes = true;
   Uint8List? _fotoPerfilBytes;
+
+  // --- FILTROS DA LISTA DE GESTANTES ---
+  final TextEditingController _filtroNome = TextEditingController();
+  final TextEditingController _filtroCadIni = TextEditingController();
+  final TextEditingController _filtroCadFim = TextEditingController();
+  final TextEditingController _filtroNascIni = TextEditingController();
+  final TextEditingController _filtroNascFim = TextEditingController();
+  final TextEditingController _filtroIdadeMin = TextEditingController();
+  final TextEditingController _filtroIdadeMax = TextEditingController();
+  final TextEditingController _filtroCidade = TextEditingController();
+  String _filtroEstado = 'TODOS';
+  bool _filtroSemRefeicoes = false;
+  bool _mostrarFiltros = false;
+
+  static const List<String> _ufs = [
+    'TODOS','AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
+    'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
+  ];
 
   // --- RELÓGIO DO TOPO ---
   Timer? _relogioTimer;
@@ -100,6 +119,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           setState(() {
             _pacientes = data['pacientes'] ?? [];
           });
+          _aplicarFiltros();
         }
       }
     } catch (e) {
@@ -107,6 +127,95 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     } finally {
       if (mounted) setState(() => _carregandoPacientes = false);
     }
+  }
+
+  DateTime? _parseData(dynamic raw) {
+    if (raw == null) return null;
+    try {
+      return DateTime.parse(raw.toString().split('T')[0]);
+    } catch (e) { return null; }
+  }
+
+  Future<void> _selecionarData(TextEditingController ctrl) async {
+    final DateTime? escolhida = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1970),
+      lastDate: DateTime(2100),
+    );
+    if (escolhida != null) {
+      setState(() => ctrl.text = DateFormat('yyyy-MM-dd').format(escolhida));
+    }
+  }
+
+  void _aplicarFiltros() {
+    setState(() {
+      _pacientesFiltradas = _pacientes.where((p) {
+        // Nome
+        if (_filtroNome.text.isNotEmpty &&
+            !(p['nome'] ?? '').toString().toLowerCase().contains(_filtroNome.text.toLowerCase())) {
+          return false;
+        }
+
+        // Data de cadastro (inicial/final)
+        if (_filtroCadIni.text.isNotEmpty || _filtroCadFim.text.isNotEmpty) {
+          DateTime? dCad = _parseData(p['data_cadastro']);
+          if (dCad == null) return false;
+          if (_filtroCadIni.text.isNotEmpty && dCad.isBefore(DateTime.parse(_filtroCadIni.text))) return false;
+          if (_filtroCadFim.text.isNotEmpty && dCad.isAfter(DateTime.parse(_filtroCadFim.text).add(Duration(days: 1)))) return false;
+        }
+
+        // Nascimento (inicial/final)
+        if (_filtroNascIni.text.isNotEmpty || _filtroNascFim.text.isNotEmpty) {
+          DateTime? dNasc = _parseData(p['data_nascimento']);
+          if (dNasc == null) return false;
+          if (_filtroNascIni.text.isNotEmpty && dNasc.isBefore(DateTime.parse(_filtroNascIni.text))) return false;
+          if (_filtroNascFim.text.isNotEmpty && dNasc.isAfter(DateTime.parse(_filtroNascFim.text))) return false;
+        }
+
+        // Idade (min/max)
+        int? idade = int.tryParse(p['idade']?.toString() ?? '');
+        if (_filtroIdadeMin.text.isNotEmpty) {
+          int min = int.tryParse(_filtroIdadeMin.text) ?? 0;
+          if (idade == null || idade < min) return false;
+        }
+        if (_filtroIdadeMax.text.isNotEmpty) {
+          int max = int.tryParse(_filtroIdadeMax.text) ?? 999;
+          if (idade == null || idade > max) return false;
+        }
+
+        // Estado
+        if (_filtroEstado != 'TODOS' && (p['estado'] ?? '').toString() != _filtroEstado) return false;
+
+        // Cidade
+        if (_filtroCidade.text.isNotEmpty &&
+            !(p['cidade'] ?? '').toString().toLowerCase().contains(_filtroCidade.text.toLowerCase())) {
+          return false;
+        }
+
+        // Sem histórico de refeições
+        if (_filtroSemRefeicoes) {
+          int total = int.tryParse(p['total_refeicoes']?.toString() ?? '0') ?? 0;
+          if (total > 0) return false;
+        }
+
+        return true;
+      }).toList();
+    });
+  }
+
+  void _limparFiltros() {
+    _filtroNome.clear();
+    _filtroCadIni.clear();
+    _filtroCadFim.clear();
+    _filtroNascIni.clear();
+    _filtroNascFim.clear();
+    _filtroIdadeMin.clear();
+    _filtroIdadeMax.clear();
+    _filtroCidade.clear();
+    setState(() => _filtroEstado = 'TODOS');
+    setState(() => _filtroSemRefeicoes = false);
+    _aplicarFiltros();
   }
 
   // =========================================================================
@@ -618,7 +727,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       ),
                       ListTile(
                         leading: Icon(Icons.people, color: _indiceMenu == 1 ? Colors.white : Colors.white54),
-                        title: Text("Lista de Gestantes", style: TextStyle(color: _indiceMenu == 1 ? Colors.white : Colors.white54, fontWeight: _indiceMenu == 1 ? FontWeight.bold : FontWeight.normal)),
+                        title: Text("Cadastro de Gestantes", style: TextStyle(color: _indiceMenu == 1 ? Colors.white : Colors.white54, fontWeight: _indiceMenu == 1 ? FontWeight.bold : FontWeight.normal)),
                         onTap: () => _mudarAba(1),
                         tileColor: _indiceMenu == 1 ? Colors.white.withOpacity(0.1) : Colors.transparent,
                       ),
@@ -712,6 +821,137 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     );
   }
 
+  Widget _avatarPaciente(Map paciente) {
+    final foto = paciente['foto_perfil_url'];
+    final temFoto = foto != null && foto.toString().length > 100;
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: Colors.grey.shade200,
+      backgroundImage: temFoto ? MemoryImage(base64Decode(foto)) : null,
+      child: !temFoto ? Icon(Icons.person, size: 20, color: Colors.grey.shade500) : null,
+    );
+  }
+
+  Widget _campoFiltroData(String label, TextEditingController ctrl) {
+    return SizedBox(
+      width: 150,
+      child: TextField(
+        controller: ctrl,
+        readOnly: true,
+        onTap: () => _selecionarData(ctrl),
+        decoration: PolifenoisTema.inputDecoracao(label, Icons.calendar_today),
+        style: TextStyle(fontSize: 13),
+      ),
+    );
+  }
+
+  Widget _buildPainelFiltros() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.filter_alt, color: PolifenoisTema.azulPrimario, size: 20),
+                SizedBox(width: 8),
+                Text("Filtros", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 16)),
+              ],
+            ),
+            SizedBox(height: 16),
+            Wrap(
+              spacing: 14, runSpacing: 14,
+              children: [
+                SizedBox(
+                  width: 220,
+                  child: TextField(
+                    controller: _filtroNome,
+                    decoration: PolifenoisTema.inputDecoracao("Nome", Icons.search),
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+                _campoFiltroData("Cadastro de", _filtroCadIni),
+                _campoFiltroData("Cadastro até", _filtroCadFim),
+                _campoFiltroData("Nascimento de", _filtroNascIni),
+                _campoFiltroData("Nascimento até", _filtroNascFim),
+                SizedBox(
+                  width: 90,
+                  child: TextField(
+                    controller: _filtroIdadeMin,
+                    keyboardType: TextInputType.number,
+                    decoration: PolifenoisTema.inputDecoracao("Idade min.", Icons.cake),
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+                SizedBox(
+                  width: 90,
+                  child: TextField(
+                    controller: _filtroIdadeMax,
+                    keyboardType: TextInputType.number,
+                    decoration: PolifenoisTema.inputDecoracao("Idade máx.", Icons.cake),
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+                SizedBox(
+                  width: 130,
+                  child: DropdownButtonFormField<String>(
+                    value: _filtroEstado,
+                    decoration: PolifenoisTema.inputDecoracao("Estado", Icons.location_on),
+                    style: TextStyle(fontSize: 13, color: Colors.black87),
+                    items: _ufs.map((uf) => DropdownMenuItem(value: uf, child: Text(uf))).toList(),
+                    onChanged: (v) => setState(() => _filtroEstado = v ?? 'TODOS'),
+                  ),
+                ),
+                SizedBox(
+                  width: 160,
+                  child: TextField(
+                    controller: _filtroCidade,
+                    decoration: PolifenoisTema.inputDecoracao("Cidade", Icons.location_city),
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+                SizedBox(
+                  width: 240,
+                  child: CheckboxListTile(
+                    value: _filtroSemRefeicoes,
+                    onChanged: (v) => setState(() => _filtroSemRefeicoes = v ?? false),
+                    title: Text("Sem histórico de refeições", style: TextStyle(fontSize: 13)),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _aplicarFiltros,
+                  icon: Icon(Icons.check, size: 16, color: Colors.white),
+                  label: Text("APLICAR FILTROS", style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+                ),
+                SizedBox(width: 10),
+                TextButton.icon(
+                  onPressed: _limparFiltros,
+                  icon: Icon(Icons.clear, size: 16),
+                  label: Text("Limpar filtros"),
+                ),
+                Spacer(),
+                Text("${_pacientesFiltradas.length} de ${_pacientes.length} gestantes", style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildListaGestantes() {
     return Padding(
       padding: EdgeInsets.all(40),
@@ -720,8 +960,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
         children: [
           Row(
             children: [
-              Text("Gestão de Pacientes", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+              Text("Cadastro de Gestantes", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
               Spacer(),
+              IconButton(
+                icon: Icon(_mostrarFiltros ? Icons.filter_alt_off : Icons.filter_alt, color: Color(0xFF1A237E)),
+                tooltip: "Mostrar/ocultar filtros",
+                onPressed: () => setState(() => _mostrarFiltros = !_mostrarFiltros),
+              ),
               IconButton(icon: Icon(Icons.refresh, color: Color(0xFF1A237E)), onPressed: _carregarPacientes),
               SizedBox(width: 15),
               ElevatedButton.icon(
@@ -733,20 +978,22 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             ],
           ),
           SizedBox(height: 20),
+          if (_mostrarFiltros) _buildPainelFiltros(),
           Expanded(
             child: Card(
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               child: _carregandoPacientes
                   ? Center(child: CircularProgressIndicator(color: PolifenoisTema.azulPrimario))
-                  : _pacientes.isEmpty
-                      ? Center(child: Text("Nenhuma paciente encontrada.", style: PolifenoisTema.corpoEstilo))
+                  : _pacientesFiltradas.isEmpty
+                      ? Center(child: Text(_pacientes.isEmpty ? "Nenhuma paciente encontrada." : "Nenhuma paciente corresponde aos filtros.", style: PolifenoisTema.corpoEstilo))
                       : SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: SingleChildScrollView(
                             child: DataTable(
                               headingRowColor: MaterialStateProperty.resolveWith((states) => PolifenoisTema.azulClaroFundo),
                               columns: [
+                                DataColumn(label: Text("Foto", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                 DataColumn(label: Text("Nome", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                 DataColumn(label: Text("CPF", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                 DataColumn(label: Text("E-mail", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
@@ -754,10 +1001,11 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                 DataColumn(label: Text("Status", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                                 DataColumn(label: Text("Ações", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario))),
                               ],
-                              rows: _pacientes.map((p) {
+                              rows: _pacientesFiltradas.map((p) {
                                 bool validado = p['email_validado'] == true;
                                 return DataRow(
                                   cells: [
+                                    DataCell(_avatarPaciente(p)),
                                     DataCell(Text(p['nome'] ?? 'Sem nome')),
                                     DataCell(Text(p['cpf'] ?? '-')),
                                     DataCell(Text(p['email'] ?? '-')),

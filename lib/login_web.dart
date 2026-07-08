@@ -110,7 +110,7 @@ class _LoginWebState extends State<LoginWeb> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.local_hospital, size: 60, color: PolifenoisTema.azulPrimario),
+                        Image.asset("assets/logo.png", height: 90),
                         SizedBox(height: 15),
                         Text("Acesso Polifenóis", style: PolifenoisTema.tituloEstilo),
                         SizedBox(height: 30),

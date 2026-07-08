@@ -243,6 +243,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     TextEditingController numCtrl = TextEditingController(text: isEdicao ? (paciente['numero'] ?? '') : '');
     TextEditingController compCtrl = TextEditingController(text: isEdicao ? (paciente['complemento'] ?? '') : '');
     TextEditingController estadoCtrl = TextEditingController(text: isEdicao ? (paciente['estado'] ?? '') : '');
+    TextEditingController cidadeCtrl = TextEditingController(text: isEdicao ? (paciente['cidade'] ?? '') : '');
 
     // Controladores - Clínico e Acesso
     TextEditingController semanaCtrl = TextEditingController(text: isEdicao ? (paciente['semana_gestacao']?.toString() ?? '') : '');
@@ -402,6 +403,8 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     Row(children: [
                       Expanded(flex: 2, child: TextField(controller: compCtrl, decoration: PolifenoisTema.inputDecoracao("Complemento", Icons.info))),
                       SizedBox(width: 10),
+                      Expanded(child: TextField(controller: cidadeCtrl, decoration: PolifenoisTema.inputDecoracao("Cidade", Icons.location_city))),
+                      SizedBox(width: 10),
                       Expanded(child: TextField(controller: estadoCtrl, decoration: PolifenoisTema.inputDecoracao("Estado (UF)", Icons.location_on))),
                     ]),
 
@@ -496,6 +499,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     nomeCtrl.text, cpfCtrl.text, emailCtrl.text, semanaCtrl.text, senhaCtrl.text, !isEdicao,
                     rg: rgCtrl.text, nasc: nascCtrl.text, idade: idadeCtrl.text, cel: celCtrl.text, fixo: fixoCtrl.text,
                     cep: cepCtrl.text, log: logradouroCtrl.text, num: numCtrl.text, comp: compCtrl.text, est: estadoCtrl.text,
+                    cidade: cidadeCtrl.text,
                     nac: nacioCtrl.text, nat: naturCtrl.text, mae: maeCtrl.text,
                     med: medCtrl.text, crm: crmCtrl.text, nut: nutriCtrl.text, crn: crnCtrl.text
                   );
@@ -512,7 +516,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
 
   Future<void> _salvarPaciente(int? id, String nome, String cpf, String email, String semana, String senha, bool isNovo,
     {String? rg, String? nasc, String? idade, String? cel, String? fixo, String? cep, String? log, String? num, String? comp,
-     String? est, String? nac, String? nat, String? mae, String? med, String? crm, String? nut, String? crn}) async {
+     String? est, String? cidade, String? nac, String? nat, String? mae, String? med, String? crm, String? nut, String? crn}) async {
 
     setState(() => _carregandoPacientes = true);
     try {
@@ -523,7 +527,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       var bodyData = {
         "nome": nome, "cpf": cpf, "email": email, "semana_gestacao": semana,
         "rg": rg, "data_nascimento": nasc, "idade": idade, "telefone": cel, "telefone_fixo": fixo,
-        "cep": cep, "logradouro": log, "numero": num, "complemento": comp, "estado": est,
+        "cep": cep, "logradouro": log, "numero": num, "complemento": comp, "estado": est, "cidade": cidade,
         "nacionalidade": nac, "naturalidade": nat, "nome_mae": mae,
         "nome_medico": med, "crm_medico": crm, "nome_nutricionista": nut, "crn_nutricionista": crn
       };
@@ -682,10 +686,17 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                   color: Color(0xFF1A237E),
                   child: Column(
                     children: [
-                      DrawerHeader(
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: Colors.white24, width: 1)),
+                        ),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            Image.asset("assets/logo.png", height: 50),
+                            SizedBox(height: 12),
                             Stack(
                               children: [
                                 CircleAvatar(

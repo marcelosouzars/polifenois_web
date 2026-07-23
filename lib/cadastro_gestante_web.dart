@@ -45,6 +45,10 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   bool _carregandoRefeicoes = true;
   bool _salvando = false;
   String _unidade = 'mg';
+  Map<String, dynamic>? _profissionalVinculado;
+  bool _carregandoProfissional = true;
+  bool _buscandoProfissional = false;
+  final TextEditingController _codigoProfissionalCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -52,6 +56,85 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     _carregarRefeicoes();
     _preencherCampos();
     _carregarUnidade();
+    _carregarProfissionalVinculado();
+  }
+
+  Future<void> _carregarProfissionalVinculado() async {
+    setState(() => _carregandoProfissional = true);
+    try {
+      final res = await http.get(
+        Uri.parse('https://polifenois-backend.onrender.com/meu-profissional/${widget.usuario['id']}'),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        setState(() => _profissionalVinculado = data['profissional']);
+      }
+    } catch (e) {
+      // silencioso
+    } finally {
+      if (mounted) setState(() => _carregandoProfissional = false);
+    }
+  }
+
+  Future<void> _buscarEVincularProfissional() async {
+    final codigo = _codigoProfissionalCtrl.text.trim();
+    if (codigo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Digite o CRM ou CRN do profissional.")));
+      return;
+    }
+
+    setState(() => _buscandoProfissional = true);
+    try {
+      final res = await http.get(
+        Uri.parse('https://polifenois-backend.onrender.com/buscar-profissional?codigo=$codigo'),
+      );
+      final data = jsonDecode(res.body);
+
+      if (res.statusCode != 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['erro'] ?? "Profissional não encontrado."), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      final profissional = data['profissional'];
+      final ehMedico = (profissional['crm_medico'] ?? '').toString().isNotEmpty;
+
+      bool? confirmou = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text("Confirmar Vínculo"),
+          content: Text(
+            "Você será vinculada a:\n\n"
+            "${profissional['nome']}\n"
+            "${ehMedico ? 'CRM: ${profissional['crm_medico']}' : 'CRN: ${profissional['crn_nutricionista']}'}\n\n"
+            "Esse profissional passará a acompanhar suas refeições registradas. Confirma?",
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text("CANCELAR")),
+            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: Text("CONFIRMAR")),
+          ],
+        ),
+      );
+
+      if (confirmou != true) return;
+
+      final vincula = await http.post(
+        Uri.parse('https://polifenois-backend.onrender.com/vincular-profissional'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"gestante_id": widget.usuario['id'], "profissional_id": profissional['id']}),
+      );
+
+      if (vincula.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Vínculo atualizado!"), backgroundColor: Colors.green));
+        _codigoProfissionalCtrl.clear();
+        _carregarProfissionalVinculado();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro de conexão."), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _buscandoProfissional = false);
+    }
   }
 
   Future<void> _carregarUnidade() async {
@@ -559,6 +642,65 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   SizedBox(width: 15),
                   Expanded(child: TextFormField(controller: _semanas, keyboardType: TextInputType.number, decoration: PolifenoisTema.inputDecoracao("Semana", Icons.pregnant_woman))),
                 ]),
+                SizedBox(height: 30),
+                Text("Meu Profissional", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_carregandoProfissional)
+                        Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
+                      else if (_profissionalVinculado != null) ...[
+                        Row(
+                          children: [
+                            Icon(Icons.verified_user, color: Colors.green, size: 20),
+                            SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_profissionalVinculado!['nome'] ?? '', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text(
+                                  (_profissionalVinculado!['crm_medico'] ?? '').toString().isNotEmpty
+                                      ? "CRM: ${_profissionalVinculado!['crm_medico']}"
+                                      : "CRN: ${_profissionalVinculado!['crn_nutricionista']}",
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 10),
+                        Text("Quer trocar de profissional? Digite o novo CRM/CRN abaixo.", style: TextStyle(fontSize: 11.5, color: Colors.grey[600])),
+                      ] else
+                        Text("Você ainda não tem um médico ou nutricionista vinculado.", style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                      SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _codigoProfissionalCtrl,
+                              decoration: PolifenoisTema.inputDecoracao("CRM ou CRN do profissional", Icons.badge),
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          SizedBox(
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: _buscandoProfissional ? null : _buscarEVincularProfissional,
+                              style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+                              child: _buscandoProfissional
+                                  ? SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : Text("Vincular", style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
                 SizedBox(height: 40),
                 _salvando ? Center(child: CircularProgressIndicator()) : ElevatedButton(
                   onPressed: () {}, 

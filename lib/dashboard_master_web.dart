@@ -350,9 +350,12 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
               data: Theme.of(context).copyWith(visualDensity: VisualDensity.compact),
               child: Container(
                 width: 1120, // Modal mais largo, para os campos ficarem lado a lado com folga
-                height: 640,
-                child: SingleChildScrollView(
-                  child: Column(
+                height: 760,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // BLOCO FIXO (não rola): dados da paciente
+                    Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // SESSÃO 1: DADOS PESSOAIS
@@ -488,63 +491,87 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       SizedBox(width: 10),
                       Expanded(child: TextField(controller: crnCtrl, decoration: PolifenoisTema.inputDecoracao("CRN", Icons.badge))),
                     ]),
+                    ],
+                    ),
 
-                    // SESSÃO 4: REGISTRO DE REFEIÇÕES (SÓ NA EDIÇÃO)
+                    // SESSÃO 4: REGISTRO DE REFEIÇÕES — fora do bloco fixo, ocupa o espaço
+                    // restante e rola sozinha, com o cabeçalho da tabela sempre visível.
                     if (isEdicao) ...[
-                      SizedBox(height: 20),
+                      SizedBox(height: 16),
                       Container(
                         padding: EdgeInsets.all(8), color: Colors.green.shade50, width: double.infinity,
                         child: Text("4. REGISTRO DE REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13)),
                       ),
-                      SizedBox(height: 10),
-                      if (carregandoRefeicoes)
-                        Center(child: CircularProgressIndicator())
-                      else if (refeicoes.isEmpty)
-                        Text("A paciente ainda não registrou nenhuma refeição no aplicativo.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
-                      else
-                        DataTable(
-                          headingRowHeight: 34,
-                          dataRowMinHeight: 46,
-                          dataRowMaxHeight: 46,
-                          headingRowColor: MaterialStateProperty.resolveWith((states) => Colors.green.shade50),
-                          columns: [
-                            DataColumn(label: Text("FOTO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            DataColumn(label: Text("DATA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            DataColumn(label: Text("HORA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            DataColumn(label: Text("TIPO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            DataColumn(label: Text("PESO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            DataColumn(label: Text("AÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                      SizedBox(height: 8),
+                      // CABEÇALHO FIXO DA TABELA
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        color: Colors.green.shade50,
+                        child: Row(
+                          children: [
+                            SizedBox(width: 44, child: Text("FOTO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            Expanded(flex: 2, child: Text("DATA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            Expanded(flex: 2, child: Text("HORA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            Expanded(flex: 3, child: Text("TIPO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            Expanded(flex: 2, child: Text("PESO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            Expanded(flex: 2, child: Text("AÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
                           ],
-                          rows: refeicoes.map((r) {
-                            DateTime? dataHora;
-                            try { dataHora = DateTime.parse(r['data_hora_registro'].toString()).toLocal(); } catch (e) {}
-                            final temFoto = r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500;
-                            return DataRow(cells: [
-                              DataCell(
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: temFoto
-                                      ? Image.memory(base64Decode(r['foto_prato_url']), width: 36, height: 36, fit: BoxFit.cover)
-                                      : Container(width: 36, height: 36, color: Colors.grey.shade200, child: Icon(Icons.fastfood, size: 18, color: Colors.grey)),
-                                ),
-                              ),
-                              DataCell(Text(dataHora != null ? DateFormat('dd/MM/yyyy').format(dataHora) : '-', style: TextStyle(fontSize: 12))),
-                              DataCell(Text(dataHora != null ? DateFormat('HH:mm').format(dataHora) : '-', style: TextStyle(fontSize: 12))),
-                              DataCell(Text(r['tipo_refeicao']?.toString() ?? '-', style: TextStyle(fontSize: 12))),
-                              DataCell(Text("${r['peso_total_refeicao'] ?? '-'}g", style: TextStyle(fontSize: 12))),
-                              DataCell(
-                                TextButton(
-                                  onPressed: () => _abrirDetalhesRefeicaoMaster(r),
-                                  child: Text("DETALHES", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
-                                ),
-                              ),
-                            ]);
-                          }).toList(),
                         ),
-                    ]
+                      ),
+                      Divider(height: 1, color: Colors.green.shade200),
+                      // CORPO ROLÁVEL (só essa parte rola, o resto do prontuário fica parado)
+                      Expanded(
+                        child: carregandoRefeicoes
+                            ? Center(child: CircularProgressIndicator())
+                            : refeicoes.isEmpty
+                                ? Center(
+                                    child: Text(
+                                      "Sem histórico de refeição",
+                                      style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 13),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    itemCount: refeicoes.length,
+                                    itemBuilder: (context, i) {
+                                      final r = refeicoes[i];
+                                      DateTime? dataHora;
+                                      try { dataHora = DateTime.parse(r['data_hora_registro'].toString()).toLocal(); } catch (e) {}
+                                      final temFoto = r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500;
+                                      return Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
+                                        child: Row(
+                                          children: [
+                                            SizedBox(
+                                              width: 44,
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: temFoto
+                                                    ? Image.memory(base64Decode(r['foto_prato_url']), width: 32, height: 32, fit: BoxFit.cover)
+                                                    : Container(width: 32, height: 32, color: Colors.grey.shade200, child: Icon(Icons.fastfood, size: 16, color: Colors.grey)),
+                                              ),
+                                            ),
+                                            Expanded(flex: 2, child: Text(dataHora != null ? DateFormat('dd/MM/yyyy').format(dataHora) : '-', style: TextStyle(fontSize: 12))),
+                                            Expanded(flex: 2, child: Text(dataHora != null ? DateFormat('HH:mm').format(dataHora) : '-', style: TextStyle(fontSize: 12))),
+                                            Expanded(flex: 3, child: Text(r['tipo_refeicao']?.toString() ?? '-', style: TextStyle(fontSize: 12))),
+                                            Expanded(flex: 2, child: Text("${r['peso_total_refeicao'] ?? '-'}g", style: TextStyle(fontSize: 12))),
+                                            Expanded(
+                                              flex: 2,
+                                              child: TextButton(
+                                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size(0, 0)),
+                                                onPressed: () => _abrirDetalhesRefeicaoMaster(r),
+                                                child: Text("DETALHES", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                      ),
+                    ],
                   ],
                 ),
-              ),
               ),
             ),
             actions: [

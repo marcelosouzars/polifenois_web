@@ -349,7 +349,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             content: Theme(
               data: Theme.of(context).copyWith(visualDensity: VisualDensity.compact),
               child: Container(
-                width: 900, // Deixa o modal executivo bem largo
+                width: 1120, // Modal mais largo, para os campos ficarem lado a lado com folga
                 height: 640,
                 child: SingleChildScrollView(
                   child: Column(
@@ -365,14 +365,38 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          flex: 3,
+                          flex: 5,
                           child: Column(
                             children: [
-                              TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person)),
+                              Row(children: [
+                                Expanded(flex: 2, child: TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person))),
+                                SizedBox(width: 10),
+                                Expanded(child: TextField(controller: cpfCtrl, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge))),
+                                SizedBox(width: 10),
+                                Expanded(child: TextField(controller: rgCtrl, decoration: PolifenoisTema.inputDecoracao("RG", Icons.fingerprint))),
+                              ]),
                               SizedBox(height: 10),
-                              TextField(controller: cpfCtrl, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge)),
+                              Row(children: [
+                                Expanded(child: TextField(controller: nascCtrl, decoration: PolifenoisTema.inputDecoracao("Nascimento (AAAA-MM-DD)", Icons.calendar_today))),
+                                SizedBox(width: 10),
+                                Expanded(child: TextField(controller: idadeCtrl, decoration: PolifenoisTema.inputDecoracao("Idade", Icons.cake))),
+                                SizedBox(width: 10),
+                                Expanded(flex: 2, child: TextField(controller: emailCtrl, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email))),
+                              ]),
                               SizedBox(height: 10),
-                              TextField(controller: rgCtrl, decoration: PolifenoisTema.inputDecoracao("RG", Icons.fingerprint)),
+                              Row(children: [
+                                Expanded(child: TextField(controller: celCtrl, decoration: PolifenoisTema.inputDecoracao("Celular", Icons.phone_android))),
+                                SizedBox(width: 10),
+                                Expanded(child: TextField(controller: fixoCtrl, decoration: PolifenoisTema.inputDecoracao("Fixo", Icons.phone))),
+                                SizedBox(width: 10),
+                                Expanded(flex: 2, child: TextField(controller: maeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome da Mãe", Icons.woman))),
+                              ]),
+                              SizedBox(height: 10),
+                              Row(children: [
+                                Expanded(child: TextField(controller: nacioCtrl, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
+                                SizedBox(width: 10),
+                                Expanded(child: TextField(controller: naturCtrl, decoration: PolifenoisTema.inputDecoracao("Naturalidade", Icons.location_city))),
+                              ]),
                             ],
                           ),
                         ),
@@ -384,7 +408,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                               child: Stack(
                                 children: [
                                   Container(
-                                    width: 110, height: 110,
+                                    width: 92, height: 92,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: Colors.grey.shade200,
@@ -395,56 +419,32 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                             : null),
                                     ),
                                     child: (fotoPacienteBytes == null && (!isEdicao || paciente!['foto_perfil_url'] == null || paciente['foto_perfil_url'].toString().length < 100))
-                                      ? Icon(Icons.person, size: 55, color: Colors.grey.shade400)
+                                      ? Icon(Icons.person, size: 46, color: Colors.grey.shade400)
                                       : null,
                                   ),
                                   if (isEdicao)
                                     Positioned(
                                       bottom: 0, right: 0,
-                                      child: CircleAvatar(radius: 16, backgroundColor: PolifenoisTema.azulPrimario,
-                                        child: Icon(Icons.camera_alt, size: 16, color: Colors.white)),
+                                      child: CircleAvatar(radius: 14, backgroundColor: PolifenoisTema.azulPrimario,
+                                        child: Icon(Icons.camera_alt, size: 14, color: Colors.white)),
                                     ),
                                 ],
                               ),
                             ),
-                            SizedBox(height: 6),
-                            Text(isEdicao ? "Toque para alterar" : "Salve o cadastro\npara adicionar foto",
-                              style: TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                            SizedBox(height: 5),
+                            Text(isEdicao ? "Toque para alterar" : "Salve para\nadicionar foto",
+                              style: TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
                           ],
                         ),
                       ],
                     ),
-                    SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(child: TextField(controller: nascCtrl, decoration: PolifenoisTema.inputDecoracao("Nascimento (AAAA-MM-DD)", Icons.calendar_today))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: idadeCtrl, decoration: PolifenoisTema.inputDecoracao("Idade", Icons.cake))),
-                      SizedBox(width: 10),
-                      Expanded(flex: 2, child: TextField(controller: emailCtrl, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email))),
-                    ]),
-                    SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(child: TextField(controller: celCtrl, decoration: PolifenoisTema.inputDecoracao("Celular", Icons.phone_android))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: fixoCtrl, decoration: PolifenoisTema.inputDecoracao("Fixo", Icons.phone))),
-                      SizedBox(width: 10),
-                      Expanded(flex: 2, child: TextField(controller: maeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome da Mãe", Icons.woman))),
-                    ]),
-                    SizedBox(height: 10),
-                    Row(children: [
-                      Expanded(child: TextField(controller: nacioCtrl, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: naturCtrl, decoration: PolifenoisTema.inputDecoracao("Naturalidade", Icons.location_city))),
-                    ]),
 
-                    SizedBox(height: 25),
-
-                    // SESSÃO 2: ENDEREÇO
+                    SizedBox(height: 16),
                     Container(
-                      padding: EdgeInsets.all(10), color: Colors.blue.shade50, width: double.infinity,
-                      child: Text("2. ENDEREÇO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                      padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
+                      child: Text("2. ENDEREÇO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
                     ),
-                    SizedBox(height: 15),
+                    SizedBox(height: 10),
                     Row(children: [
                       Expanded(child: TextField(controller: cepCtrl, decoration: PolifenoisTema.inputDecoracao("CEP", Icons.map))),
                       SizedBox(width: 10),
@@ -461,14 +461,14 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       Expanded(child: TextField(controller: estadoCtrl, decoration: PolifenoisTema.inputDecoracao("Estado (UF)", Icons.location_on))),
                     ]),
 
-                    SizedBox(height: 25),
+                    SizedBox(height: 16),
 
                     // SESSÃO 3: DADOS CLÍNICOS
                     Container(
-                      padding: EdgeInsets.all(10), color: Colors.blue.shade50, width: double.infinity,
-                      child: Text("3. DADOS CLÍNICOS E ACESSO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                      padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
+                      child: Text("3. DADOS CLÍNICOS E ACESSO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
                     ),
-                    SizedBox(height: 15),
+                    SizedBox(height: 10),
                     Row(children: [
                       Expanded(child: TextField(controller: semanaCtrl, decoration: PolifenoisTema.inputDecoracao("Semanas de Gestação", Icons.calendar_month))),
                       if (!isEdicao) ...[

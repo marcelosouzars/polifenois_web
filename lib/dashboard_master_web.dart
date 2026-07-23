@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
 import 'gestao_alimentos_web.dart';
@@ -26,6 +27,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   bool _carregandoStats = true;
   bool _carregandoPacientes = true;
   Uint8List? _fotoPerfilBytes;
+  String _unidade = 'mg';
 
   // --- FILTROS DA LISTA DE GESTANTES ---
   final TextEditingController _filtroNome = TextEditingController();
@@ -52,9 +54,35 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   void initState() {
     super.initState();
     _buscarEstatisticas();
+    _carregarUnidade();
     _relogioTimer = Timer.periodic(Duration(seconds: 1), (_) {
       if (mounted) setState(() => _agora = DateTime.now());
     });
+  }
+
+  Future<void> _carregarUnidade() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _unidade = prefs.getString('unidade_polifenois') ?? 'mg');
+  }
+
+  Future<void> _selecionarUnidade(String unidade, StateSetter? setModalState) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('unidade_polifenois', unidade);
+    setState(() => _unidade = unidade);
+    if (setModalState != null) setModalState(() {});
+  }
+
+  String _formatarPolifenois(dynamic valorMg) {
+    double valor = 0;
+    if (valorMg is num) {
+      valor = valorMg.toDouble();
+    } else {
+      valor = double.tryParse(valorMg?.toString() ?? '0') ?? 0;
+    }
+    if (_unidade == 'g') {
+      return "${(valor / 1000).toStringAsFixed(3)} g";
+    }
+    return "${valor.toStringAsFixed(1)} mg";
   }
 
   @override
@@ -72,19 +100,46 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     }
   }
 
-  void _mostrarAvisoDesenvolvimento() {
+  void _abrirConfiguracoes() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Módulo em Desenvolvimento", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
-        content: Text("O módulo de configurações estará disponível nas próximas atualizações do sistema."),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
-            child: Text("OK", style: TextStyle(color: Colors.white)),
-          )
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: Text("Configurações", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
+          content: Container(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Mostrar polifenóis em:", style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700)),
+                SizedBox(height: 10),
+                ToggleButtons(
+                  isSelected: [_unidade == 'mg', _unidade == 'g'],
+                  onPressed: (index) => _selecionarUnidade(index == 0 ? 'mg' : 'g', setModalState),
+                  borderRadius: BorderRadius.circular(8),
+                  selectedColor: Colors.white,
+                  fillColor: PolifenoisTema.azulPrimario,
+                  color: PolifenoisTema.azulPrimario,
+                  constraints: BoxConstraints(minHeight: 38, minWidth: 90),
+                  children: [Text("Miligramas (mg)"), Text("Gramas (g)")],
+                ),
+                SizedBox(height: 8),
+                Text(
+                  "Vale só pra este computador — não afeta o que os outros usuários veem.",
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+              child: Text("FECHAR", style: TextStyle(color: Colors.white)),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -475,7 +530,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(r['tipo_refeicao']?.toString().toUpperCase() ?? 'REFEIÇÃO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                                        Text("${r['total_polifenois_refeicao']} mg", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                        Text(_formatarPolifenois(r['total_polifenois_refeicao']), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
                                       ],
                                     ),
                                   )
@@ -759,7 +814,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       ListTile(
                         leading: Icon(Icons.settings, color: Colors.white54),
                         title: Text("Configurações", style: TextStyle(color: Colors.white54)),
-                        onTap: () => _mostrarAvisoDesenvolvimento(),
+                        onTap: () => _abrirConfiguracoes(),
                       ),
                       Spacer(),
                       ListTile(

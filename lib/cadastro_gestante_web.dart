@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:typed_data'; 
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
 
@@ -17,7 +17,6 @@ class CadastroGestanteWeb extends StatefulWidget {
 class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   int _indiceMenu = 1; 
   final _formKey = GlobalKey<FormState>();
-  Uint8List? _fotoPerfilBytes; 
   
   // ===========================================================================
   // CONTROLADORES SOBERANOS DO MARCELO
@@ -45,12 +44,78 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
   List<dynamic> _refeicoes = [];
   bool _carregandoRefeicoes = true;
   bool _salvando = false;
+  String _unidade = 'mg';
 
   @override
   void initState() {
     super.initState();
     _carregarRefeicoes();
     _preencherCampos();
+    _carregarUnidade();
+  }
+
+  Future<void> _carregarUnidade() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _unidade = prefs.getString('unidade_polifenois') ?? 'mg');
+  }
+
+  Future<void> _selecionarUnidade(String unidade, StateSetter? setModalState) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('unidade_polifenois', unidade);
+    setState(() => _unidade = unidade);
+    if (setModalState != null) setModalState(() {});
+  }
+
+  String _formatarPolifenois(dynamic valorMg) {
+    double valor = 0;
+    if (valorMg is num) {
+      valor = valorMg.toDouble();
+    } else {
+      valor = double.tryParse(valorMg?.toString() ?? '0') ?? 0;
+    }
+    if (_unidade == 'g') {
+      return "${(valor / 1000).toStringAsFixed(3)} g";
+    }
+    return "${valor.toStringAsFixed(1)} mg";
+  }
+
+  void _abrirConfiguracoes() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: Text("Configurações", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
+          content: Container(
+            width: 340,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Mostrar polifenóis em:", style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700)),
+                SizedBox(height: 10),
+                ToggleButtons(
+                  isSelected: [_unidade == 'mg', _unidade == 'g'],
+                  onPressed: (index) => _selecionarUnidade(index == 0 ? 'mg' : 'g', setModalState),
+                  borderRadius: BorderRadius.circular(8),
+                  selectedColor: Colors.white,
+                  fillColor: PolifenoisTema.azulPrimario,
+                  color: PolifenoisTema.azulPrimario,
+                  constraints: BoxConstraints(minHeight: 38, minWidth: 90),
+                  children: [Text("Miligramas (mg)"), Text("Gramas (g)")],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+              child: Text("FECHAR", style: TextStyle(color: Colors.white)),
+            )
+          ],
+        ),
+      ),
+    );
   }
 
   void _preencherCampos() {
@@ -87,64 +152,8 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     }
   }
 
-  // =========================================================================
-  // LÓGICA DE ALTERAÇÃO DE FOTO DE PERFIL COM GRAVAÇÃO NO NEON
-  // =========================================================================
-  Future<void> _alterarFotoPerfil() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'png', 'jpeg'],
-    );
-
-    if (result != null) {
-      final bytes = result.files.first.bytes;
-      if (bytes == null) return;
-
-      // Pop-up de Confirmação
-      bool? confirmar = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text("Alterar Foto de Perfil?"),
-          content: Text("Deseja salvar esta imagem como sua nova foto de perfil?"),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text("CANCELAR")),
-            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: Text("SALVAR AGORA")),
-          ],
-        ),
-      );
-
-      if (confirmar == true) {
-        setState(() => _salvando = true);
-        try {
-          String base64Foto = base64Encode(bytes);
-          final res = await http.put(
-            Uri.parse("https://polifenois-backend.onrender.com/atualizar-foto-perfil"),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode({
-              "usuario_id": widget.usuario['id'],
-              "foto_base64": base64Foto,
-            }),
-          );
-
-          if (res.statusCode == 200) {
-            setState(() {
-              _fotoPerfilBytes = bytes;
-              _salvando = false;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Foto atualizada com sucesso!"), backgroundColor: Colors.green));
-          } else {
-            throw Exception("Erro no servidor");
-          }
-        } catch (e) {
-          setState(() => _salvando = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao salvar foto no servidor."), backgroundColor: Colors.red));
-        }
-      }
-    }
-  }
-
   // ===========================================================================
-  // LÓGICA DE GESTÃO DE FOTOS E REFEIÇÕES (MANTIDA)
+  // LÓGICA DE GESTÃO DE FOTOS E REFEIÇÕES
   // ===========================================================================
 
   void _abrirDetalhesRefeicao(Map<String, dynamic> refeicao) {
@@ -176,7 +185,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                           borderRadius: BorderRadius.circular(10),
                           child: refeicao['foto_prato_url'] != null && refeicao['foto_prato_url'].length > 500
                             ? Image.memory(base64Decode(refeicao['foto_prato_url']), height: 300, width: double.infinity, fit: BoxFit.cover)
-                            : Image.network(refeicao['foto_prato_url'] ?? '', height: 300, width: double.infinity, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(height: 300, color: Colors.grey[200], child: Icon(Icons.broken_image, size: 50))),
+                            : Image.network(refeicao['foto_prato_url'] ?? '', height: 300, width: double.infinity, fit: BoxFit.cover),
                         ),
                       ),
                       Positioned(
@@ -190,7 +199,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                     ],
                   ),
                   SizedBox(height: 20),
-                  Text("Polifenóis Totais: ${refeicao['total_polifenois_refeicao']} mg", 
+                  Text("Polifenóis Totais: ${_formatarPolifenois(refeicao['total_polifenois_refeicao'])}", 
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
                   Divider(height: 40),
                   Row(
@@ -214,7 +223,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                           child: ListTile(
                             leading: Icon(Icons.restaurant_menu, color: PolifenoisTema.azulPrimario),
                             title: Text(it['nome_alimento'], style: TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text("${it['peso_estimado_gramas']}g | ${it['polifenois_consumidos_item']}mg"),
+                            subtitle: Text("${it['peso_estimado_gramas']}g | ${_formatarPolifenois(it['polifenois_consumidos_item'])}"),
                             trailing: IconButton(
                               icon: Icon(Icons.delete_outline, color: Colors.red),
                               onPressed: () => _excluirApenasItem(it['id'], refeicao['id'], setModalState),
@@ -236,6 +245,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
   }
 
+  // --- NOVA FUNÇÃO: MODAL DE OPÇÕES DA FOTO ---
   void _modalOpcoesFoto(String refeicaoId, StateSetter modalRefresh) {
     showDialog(
       context: context,
@@ -266,6 +276,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
   }
 
+  // --- NOVA FUNÇÃO: EXPLORER + SELEÇÃO + 3 BOTÕES ---
   void _selecionarEConfirmarFoto(String refeicaoId, StateSetter modalRefresh) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -313,8 +324,8 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
         body: jsonEncode({"foto_base64": base64}),
       );
       if (res.statusCode == 200) {
-        modalRefresh(() {});
-        _carregarRefeicoes();
+        modalRefresh(() {}); // Atualiza o modal
+        _carregarRefeicoes(); // Atualiza o dashboard
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Foto atualizada com sucesso!"), backgroundColor: Colors.green));
       }
     } catch (e) {
@@ -322,6 +333,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     }
   }
 
+  // --- RESTANTE DAS FUNÇÕES (ADICIONAR/EXCLUIR ITENS) ---
   void _modalNovoItem(String refeicaoId, StateSetter modalRefresh) {
     TextEditingController _itNome = TextEditingController();
     TextEditingController _itPeso = TextEditingController();
@@ -408,34 +420,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundColor: Colors.blueGrey[50],
-                            backgroundImage: _fotoPerfilBytes != null 
-                              ? MemoryImage(_fotoPerfilBytes!) 
-                              : (widget.usuario['foto_perfil_url'] != null && widget.usuario['foto_perfil_url'].toString().length > 100
-                                  ? MemoryImage(base64Decode(widget.usuario['foto_perfil_url']))
-                                  : null),
-                            child: (_fotoPerfilBytes == null && (widget.usuario['foto_perfil_url'] == null || widget.usuario['foto_perfil_url'].toString().length < 100))
-                                ? Icon(Icons.person_pin, size: 60, color: PolifenoisTema.azulPrimario)
-                                : null,
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: GestureDetector(
-                              onTap: _alterarFotoPerfil,
-                              child: CircleAvatar(
-                                radius: 15,
-                                backgroundColor: PolifenoisTema.azulPrimario,
-                                child: Icon(Icons.camera_alt, size: 15, color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      Icon(Icons.person_pin, size: 60, color: PolifenoisTema.azulPrimario),
                       SizedBox(height: 10),
                       Text(_nome.text, style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
                     ],
@@ -450,6 +435,11 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                   leading: Icon(Icons.badge, color: _indiceMenu == 0 ? PolifenoisTema.azulPrimario : Colors.grey),
                   title: Text("Dados Cadastrais"),
                   onTap: () => setState(() => _indiceMenu = 0),
+                ),
+                ListTile(
+                  leading: Icon(Icons.settings, color: Colors.grey),
+                  title: Text("Configurações"),
+                  onTap: () => _abrirConfiguracoes(),
                 ),
                 Spacer(),
                 ListTile(
@@ -501,7 +491,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                                   children: [
                                     r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500
                                       ? Image.memory(base64Decode(r['foto_prato_url']), fit: BoxFit.cover, width: double.infinity)
-                                      : Image.network(r['foto_prato_url'] ?? '', fit: BoxFit.cover, width: double.infinity, errorBuilder: (c, e, s) => Container(color: Colors.grey[100], child: Icon(Icons.restaurant, color: Colors.grey))),
+                                      : Image.network(r['foto_prato_url'] ?? '', fit: BoxFit.cover, width: double.infinity),
                                     Positioned(
                                       top: 5, right: 5,
                                       child: Container(
@@ -519,7 +509,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(r['tipo_refeicao']?.toString().toUpperCase() ?? 'REFEIÇÃO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                                    Text("${r['total_polifenois_refeicao']}mg", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                    Text(_formatarPolifenois(r['total_polifenois_refeicao']), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
                                   ],
                                 ),
                               )
@@ -535,6 +525,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
     );
   }
 
+  // --- SEU FORMULÁRIO DE PERFIL COMPLETO (MANTIDO) ---
   Widget _buildFormulario() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(40),
@@ -570,9 +561,7 @@ class _CadastroGestanteWebState extends State<CadastroGestanteWeb> {
                 ]),
                 SizedBox(height: 40),
                 _salvando ? Center(child: CircularProgressIndicator()) : ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Salvamento em nuvem disponível na próxima versão!")));
-                  }, 
+                  onPressed: () {}, 
                   style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, minimumSize: Size(double.infinity, 60)),
                   child: Text("GUARDAR PERFIL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),

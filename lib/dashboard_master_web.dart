@@ -46,18 +46,14 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
   ];
 
-  // --- RELÓGIO DO TOPO ---
-  Timer? _relogioTimer;
-  DateTime _agora = DateTime.now();
+  // --- RELÓGIO DO TOPO: foi movido para um widget isolado (_RelogioTopo)
+  // para não recarregar a tela inteira (e "piscar" as fotos) a cada segundo.
 
   @override
   void initState() {
     super.initState();
     _buscarEstatisticas();
     _carregarUnidade();
-    _relogioTimer = Timer.periodic(Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _agora = DateTime.now());
-    });
   }
 
   Future<void> _carregarUnidade() async {
@@ -87,7 +83,6 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
 
   @override
   void dispose() {
-    _relogioTimer?.cancel();
     super.dispose();
   }
 
@@ -351,18 +346,21 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
 
           return AlertDialog(
             title: Text(isEdicao ? "Prontuário Completo da Paciente" : "Novo Cadastro de Paciente", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
-            content: Container(
-              width: 900, // Deixa o modal executivo bem largo
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // SESSÃO 1: DADOS PESSOAIS
-                    Container(
-                      padding: EdgeInsets.all(10), color: Colors.blue.shade50, width: double.infinity,
-                      child: Text("1. DADOS PESSOAIS", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
-                    ),
-                    SizedBox(height: 15),
+            content: Theme(
+              data: Theme.of(context).copyWith(visualDensity: VisualDensity.compact),
+              child: Container(
+                width: 900, // Deixa o modal executivo bem largo
+                height: 640,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // SESSÃO 1: DADOS PESSOAIS
+                      Container(
+                        padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
+                        child: Text("1. DADOS PESSOAIS", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
+                      ),
+                      SizedBox(height: 10),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -491,57 +489,62 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       Expanded(child: TextField(controller: crnCtrl, decoration: PolifenoisTema.inputDecoracao("CRN", Icons.badge))),
                     ]),
 
-                    // SESSÃO 4: GALERIA DE REFEIÇÕES (SÓ NA EDIÇÃO)
+                    // SESSÃO 4: REGISTRO DE REFEIÇÕES (SÓ NA EDIÇÃO)
                     if (isEdicao) ...[
-                      SizedBox(height: 35),
+                      SizedBox(height: 20),
                       Container(
-                        padding: EdgeInsets.all(10), color: Colors.green.shade50, width: double.infinity,
-                        child: Text("4. HISTÓRICO FOTOGRÁFICO DE REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                        padding: EdgeInsets.all(8), color: Colors.green.shade50, width: double.infinity,
+                        child: Text("4. REGISTRO DE REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13)),
                       ),
-                      SizedBox(height: 15),
+                      SizedBox(height: 10),
                       if (carregandoRefeicoes)
                         Center(child: CircularProgressIndicator())
                       else if (refeicoes.isEmpty)
                         Text("A paciente ainda não registrou nenhuma refeição no aplicativo.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
                       else
-                        GridView.builder(
-                          shrinkWrap: true, // Importante para rodar dentro do SingleChildScrollView
-                          physics: NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.9,
-                          ),
-                          itemCount: refeicoes.length,
-                          itemBuilder: (context, i) {
-                            final r = refeicoes[i];
-                            return Card(
-                              clipBehavior: Clip.antiAlias,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500
-                                      ? Image.memory(base64Decode(r['foto_prato_url']), fit: BoxFit.cover, width: double.infinity)
-                                      : Image.network(r['foto_prato_url'] ?? '', fit: BoxFit.cover, width: double.infinity, errorBuilder: (c, e, s) => Icon(Icons.broken_image, size: 50, color: Colors.grey)),
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsets.all(8.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(r['tipo_refeicao']?.toString().toUpperCase() ?? 'REFEIÇÃO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                                        Text(_formatarPolifenois(r['total_polifenois_refeicao']), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                                      ],
-                                    ),
-                                  )
-                                ],
+                        DataTable(
+                          headingRowHeight: 34,
+                          dataRowMinHeight: 46,
+                          dataRowMaxHeight: 46,
+                          headingRowColor: MaterialStateProperty.resolveWith((states) => Colors.green.shade50),
+                          columns: [
+                            DataColumn(label: Text("FOTO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            DataColumn(label: Text("DATA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            DataColumn(label: Text("HORA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            DataColumn(label: Text("TIPO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            DataColumn(label: Text("PESO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            DataColumn(label: Text("AÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                          ],
+                          rows: refeicoes.map((r) {
+                            DateTime? dataHora;
+                            try { dataHora = DateTime.parse(r['data_hora_registro'].toString()).toLocal(); } catch (e) {}
+                            final temFoto = r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500;
+                            return DataRow(cells: [
+                              DataCell(
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: temFoto
+                                      ? Image.memory(base64Decode(r['foto_prato_url']), width: 36, height: 36, fit: BoxFit.cover)
+                                      : Container(width: 36, height: 36, color: Colors.grey.shade200, child: Icon(Icons.fastfood, size: 18, color: Colors.grey)),
+                                ),
                               ),
-                            );
-                          },
-                        )
+                              DataCell(Text(dataHora != null ? DateFormat('dd/MM/yyyy').format(dataHora) : '-', style: TextStyle(fontSize: 12))),
+                              DataCell(Text(dataHora != null ? DateFormat('HH:mm').format(dataHora) : '-', style: TextStyle(fontSize: 12))),
+                              DataCell(Text(r['tipo_refeicao']?.toString() ?? '-', style: TextStyle(fontSize: 12))),
+                              DataCell(Text("${r['peso_total_refeicao'] ?? '-'}g", style: TextStyle(fontSize: 12))),
+                              DataCell(
+                                TextButton(
+                                  onPressed: () => _abrirDetalhesRefeicaoMaster(r),
+                                  child: Text("DETALHES", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                                ),
+                              ),
+                            ]);
+                          }).toList(),
+                        ),
                     ]
                   ],
                 ),
+              ),
               ),
             ),
             actions: [
@@ -565,6 +568,110 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             ],
           );
         }
+      ),
+    );
+  }
+
+  // =========================================================================
+  // DETALHAMENTO COMPLETO DE UMA REFEIÇÃO (o que a IA detectou, peso, polifenóis)
+  // =========================================================================
+  void _abrirDetalhesRefeicaoMaster(Map<String, dynamic> refeicao) {
+    List<dynamic> itens = [];
+    bool carregandoItens = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          if (carregandoItens && itens.isEmpty) {
+            http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes/${refeicao['id']}/itens")).then((res) {
+              if (res.statusCode == 200) {
+                setModalState(() {
+                  itens = jsonDecode(res.body);
+                  carregandoItens = false;
+                });
+              } else {
+                setModalState(() => carregandoItens = false);
+              }
+            });
+          }
+
+          DateTime? dataHora;
+          try { dataHora = DateTime.parse(refeicao['data_hora_registro'].toString()).toLocal(); } catch (e) {}
+          final temFoto = refeicao['foto_prato_url'] != null && refeicao['foto_prato_url'].toString().length > 500;
+
+          return AlertDialog(
+            title: Text("Detalhes da Refeição", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
+            content: Container(
+              width: 560,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: temFoto
+                          ? Image.memory(base64Decode(refeicao['foto_prato_url']), width: double.infinity, height: 220, fit: BoxFit.cover)
+                          : Container(width: double.infinity, height: 180, color: Colors.grey.shade200, child: Icon(Icons.fastfood, size: 50, color: Colors.grey)),
+                    ),
+                    SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          (refeicao['tipo_refeicao']?.toString() ?? 'Refeição').toUpperCase(),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PolifenoisTema.azulPrimario),
+                        ),
+                        Text(
+                          dataHora != null ? DateFormat('dd/MM/yyyy \'às\' HH:mm').format(dataHora) : '-',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      "Total de Polifenóis: ${_formatarPolifenois(refeicao['total_polifenois_refeicao'])}",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green),
+                    ),
+                    Text("Peso total do prato: ${refeicao['peso_total_refeicao'] ?? '-'}g", style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5)),
+                    Divider(height: 30),
+                    Text("Alimentos identificados pela IA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    SizedBox(height: 8),
+                    if (carregandoItens)
+                      Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                    else if (itens.isEmpty)
+                      Text("Nenhum item registrado nessa refeição.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
+                    else
+                      ...itens.map((it) => Card(
+                        margin: EdgeInsets.only(bottom: 6),
+                        elevation: 1,
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(Icons.restaurant, color: PolifenoisTema.azulPrimario, size: 20),
+                          title: Text(it['nome_alimento'] ?? '-', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text("${it['peso_estimado_gramas']}g", style: TextStyle(fontSize: 12)),
+                              Text(_formatarPolifenois(it['polifenois_consumidos_item']), style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+                child: Text("FECHAR", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -727,10 +834,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             color: Colors.white,
             alignment: Alignment.centerRight,
             padding: EdgeInsets.only(right: 24),
-            child: Text(
-              DateFormat('dd/MM/yyyy HH:mm:ss').format(_agora),
-              style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600),
-            ),
+            child: _RelogioTopo(),
           ),
           Divider(height: 1, thickness: 1.2, color: Colors.black87),
           Expanded(
@@ -1307,6 +1411,42 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           Text(valor, style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
         ],
       ),
+    );
+  }
+}
+
+// =========================================================================
+// RELÓGIO ISOLADO — atualiza só a si mesmo a cada segundo, sem recarregar
+// o resto da tela (evita o "piscar" das fotos e de outros widgets).
+// =========================================================================
+class _RelogioTopo extends StatefulWidget {
+  @override
+  _RelogioTopoState createState() => _RelogioTopoState();
+}
+
+class _RelogioTopoState extends State<_RelogioTopo> {
+  Timer? _timer;
+  DateTime _agora = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _agora = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      DateFormat('dd/MM/yyyy HH:mm:ss').format(_agora),
+      style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600),
     );
   }
 }

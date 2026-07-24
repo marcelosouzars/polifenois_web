@@ -95,6 +95,105 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     }
   }
 
+  void _abrirAlterarSenha() {
+    final senhaAtualCtrl = TextEditingController();
+    final novaSenhaCtrl = TextEditingController();
+    final confirmarSenhaCtrl = TextEditingController();
+    bool salvando = false;
+    bool senhaAtualVisivel = false, novaSenhaVisivel = false, confirmarVisivel = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: Text("Alterar Senha", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
+          content: Container(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: senhaAtualCtrl,
+                  obscureText: !senhaAtualVisivel,
+                  decoration: PolifenoisTema.inputDecoracao("Senha atual", Icons.lock_outline).copyWith(
+                    suffixIcon: IconButton(
+                      icon: Icon(senhaAtualVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                      onPressed: () => setModalState(() => senhaAtualVisivel = !senhaAtualVisivel),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: novaSenhaCtrl,
+                  obscureText: !novaSenhaVisivel,
+                  decoration: PolifenoisTema.inputDecoracao("Nova senha", Icons.lock).copyWith(
+                    suffixIcon: IconButton(
+                      icon: Icon(novaSenhaVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                      onPressed: () => setModalState(() => novaSenhaVisivel = !novaSenhaVisivel),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12),
+                TextField(
+                  controller: confirmarSenhaCtrl,
+                  obscureText: !confirmarVisivel,
+                  decoration: PolifenoisTema.inputDecoracao("Confirmar nova senha", Icons.lock).copyWith(
+                    suffixIcon: IconButton(
+                      icon: Icon(confirmarVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                      onPressed: () => setModalState(() => confirmarVisivel = !confirmarVisivel),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR")),
+            ElevatedButton(
+              onPressed: salvando ? null : () async {
+                if (senhaAtualCtrl.text.isEmpty || novaSenhaCtrl.text.isEmpty || confirmarSenhaCtrl.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Preencha todos os campos."), backgroundColor: Colors.orange));
+                  return;
+                }
+                if (novaSenhaCtrl.text != confirmarSenhaCtrl.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("A nova senha e a confirmação não coincidem."), backgroundColor: Colors.red));
+                  return;
+                }
+                setModalState(() => salvando = true);
+                try {
+                  final res = await http.post(
+                    Uri.parse("https://polifenois-backend.onrender.com/alterar-senha"),
+                    headers: {"Content-Type": "application/json"},
+                    body: jsonEncode({
+                      "usuario_id": widget.usuario['id'],
+                      "senha_atual": senhaAtualCtrl.text,
+                      "nova_senha": novaSenhaCtrl.text,
+                    }),
+                  );
+                  final data = jsonDecode(res.body);
+                  if (res.statusCode == 200) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Senha alterada com sucesso!"), backgroundColor: Colors.green));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['erro'] ?? "Senha atual incorreta."), backgroundColor: Colors.red));
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro de conexão."), backgroundColor: Colors.red));
+                } finally {
+                  setModalState(() => salvando = false);
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+              child: salvando
+                  ? SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text("SALVAR", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _abrirConfiguracoes() {
     showDialog(
       context: context,
@@ -123,6 +222,21 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                 Text(
                   "Vale só pra este computador — não afeta o que os outros usuários veem.",
                   style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                ),
+                Divider(height: 30),
+                Text("Segurança", style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+                SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _abrirAlterarSenha();
+                    },
+                    icon: Icon(Icons.lock_outline, size: 18, color: PolifenoisTema.azulPrimario),
+                    label: Text("Alterar Senha", style: TextStyle(color: PolifenoisTema.azulPrimario)),
+                    style: OutlinedButton.styleFrom(side: BorderSide(color: PolifenoisTema.azulPrimario), padding: EdgeInsets.symmetric(vertical: 12)),
+                  ),
                 ),
               ],
             ),

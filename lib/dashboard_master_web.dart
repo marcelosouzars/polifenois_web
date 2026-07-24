@@ -109,35 +109,14 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       "• 1 número\n"
       "• 1 caractere especial (@ # \$ % & etc.)";
 
-  void _popupAlterarSenha(BuildContext dialogContext, {required bool sucesso, required String mensagem}) {
-    showDialog(
-      context: dialogContext,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(sucesso ? Icons.check_circle : Icons.error, color: sucesso ? Colors.green : Colors.red, size: 26),
-            SizedBox(width: 10),
-            Text(sucesso ? "Sucesso" : "Atenção"),
-          ],
-        ),
-        content: Text(mensagem, style: TextStyle(fontSize: 14.5)),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
-            child: Text("OK", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _abrirAlterarSenha() {
     final senhaAtualCtrl = TextEditingController();
     final novaSenhaCtrl = TextEditingController();
     final confirmarSenhaCtrl = TextEditingController();
     bool salvando = false;
     bool senhaAtualVisivel = false, novaSenhaVisivel = false, confirmarVisivel = false;
+    String? avisoMsg;
+    bool avisoSucesso = false;
 
     showDialog(
       context: context,
@@ -146,46 +125,90 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           title: Text("Alterar Senha", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
           content: Container(
             width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                TextField(
-                  controller: senhaAtualCtrl,
-                  obscureText: !senhaAtualVisivel,
-                  decoration: PolifenoisTema.inputDecoracao("Senha atual", Icons.lock_outline).copyWith(
-                    suffixIcon: IconButton(
-                      icon: Icon(senhaAtualVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setModalState(() => senhaAtualVisivel = !senhaAtualVisivel),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: senhaAtualCtrl,
+                      obscureText: !senhaAtualVisivel,
+                      decoration: PolifenoisTema.inputDecoracao("Senha atual", Icons.lock_outline).copyWith(
+                        suffixIcon: IconButton(
+                          icon: Icon(senhaAtualVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                          onPressed: () => setModalState(() => senhaAtualVisivel = !senhaAtualVisivel),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    TextField(
+                      controller: novaSenhaCtrl,
+                      obscureText: !novaSenhaVisivel,
+                      decoration: PolifenoisTema.inputDecoracao("Nova senha", Icons.lock).copyWith(
+                        suffixIcon: IconButton(
+                          icon: Icon(novaSenhaVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                          onPressed: () => setModalState(() => novaSenhaVisivel = !novaSenhaVisivel),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(top: 6, left: 4),
+                      child: Text("Mín. 6 caracteres, 1 maiúscula, 1 número, 1 especial", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                    ),
+                    SizedBox(height: 12),
+                    TextField(
+                      controller: confirmarSenhaCtrl,
+                      obscureText: !confirmarVisivel,
+                      decoration: PolifenoisTema.inputDecoracao("Confirmar nova senha", Icons.lock).copyWith(
+                        suffixIcon: IconButton(
+                          icon: Icon(confirmarVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                          onPressed: () => setModalState(() => confirmarVisivel = !confirmarVisivel),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // Aviso central "flutuante" — não abre um dialog novo, só desenha por cima,
+                // pra não quebrar o foco/teclado dos campos (era a causa do "travamento").
+                if (avisoMsg != null)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withOpacity(0.55),
+                      child: Center(
+                        child: Container(
+                          margin: EdgeInsets.all(16),
+                          padding: EdgeInsets.all(20),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(avisoSucesso ? Icons.check_circle : Icons.error, color: avisoSucesso ? Colors.green : Colors.red, size: 38),
+                              SizedBox(height: 10),
+                              Text(avisoSucesso ? "Sucesso" : "Atenção", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              SizedBox(height: 8),
+                              Text(avisoMsg!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
+                              SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    if (avisoSucesso) {
+                                      Navigator.pop(dialogContext);
+                                    } else {
+                                      setModalState(() => avisoMsg = null);
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+                                  child: Text("OK", style: TextStyle(color: Colors.white)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: 12),
-                TextField(
-                  controller: novaSenhaCtrl,
-                  obscureText: !novaSenhaVisivel,
-                  decoration: PolifenoisTema.inputDecoracao("Nova senha", Icons.lock).copyWith(
-                    suffixIcon: IconButton(
-                      icon: Icon(novaSenhaVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setModalState(() => novaSenhaVisivel = !novaSenhaVisivel),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: 6, left: 4),
-                  child: Text("Mín. 6 caracteres, 1 maiúscula, 1 número, 1 especial", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                ),
-                SizedBox(height: 12),
-                TextField(
-                  controller: confirmarSenhaCtrl,
-                  obscureText: !confirmarVisivel,
-                  decoration: PolifenoisTema.inputDecoracao("Confirmar nova senha", Icons.lock).copyWith(
-                    suffixIcon: IconButton(
-                      icon: Icon(confirmarVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setModalState(() => confirmarVisivel = !confirmarVisivel),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -194,15 +217,15 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             ElevatedButton(
               onPressed: salvando ? null : () async {
                 if (senhaAtualCtrl.text.isEmpty || novaSenhaCtrl.text.isEmpty || confirmarSenhaCtrl.text.isEmpty) {
-                  _popupAlterarSenha(dialogContext, sucesso: false, mensagem: "Preencha todos os campos.");
+                  setModalState(() { avisoMsg = "Preencha todos os campos."; avisoSucesso = false; });
                   return;
                 }
                 if (!_senhaForte(novaSenhaCtrl.text)) {
-                  _popupAlterarSenha(dialogContext, sucesso: false, mensagem: _regraSenha);
+                  setModalState(() { avisoMsg = _regraSenha; avisoSucesso = false; });
                   return;
                 }
                 if (novaSenhaCtrl.text != confirmarSenhaCtrl.text) {
-                  _popupAlterarSenha(dialogContext, sucesso: false, mensagem: "A nova senha e a confirmação não coincidem. Corrija os dois campos e tente novamente.");
+                  setModalState(() { avisoMsg = "A nova senha e a confirmação não coincidem. Corrija os dois campos e tente novamente."; avisoSucesso = false; });
                   return;
                 }
                 setModalState(() => salvando = true);
@@ -217,16 +240,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     }),
                   );
                   final data = jsonDecode(res.body);
-                  setModalState(() => salvando = false);
                   if (res.statusCode == 200) {
-                    Navigator.pop(dialogContext);
-                    _popupAlterarSenha(context, sucesso: true, mensagem: "Senha alterada com sucesso!");
+                    setModalState(() { salvando = false; avisoMsg = "Senha alterada com sucesso!"; avisoSucesso = true; });
                   } else {
-                    _popupAlterarSenha(dialogContext, sucesso: false, mensagem: data['erro'] ?? "Senha atual incorreta.");
+                    setModalState(() { salvando = false; avisoMsg = data['erro'] ?? "Senha atual incorreta."; avisoSucesso = false; });
                   }
                 } catch (e) {
-                  setModalState(() => salvando = false);
-                  _popupAlterarSenha(dialogContext, sucesso: false, mensagem: "Erro de conexão. Verifique sua internet e tente novamente.");
+                  setModalState(() { salvando = false; avisoMsg = "Erro de conexão. Verifique sua internet e tente novamente."; avisoSucesso = false; });
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),

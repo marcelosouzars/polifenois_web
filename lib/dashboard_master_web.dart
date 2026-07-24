@@ -345,12 +345,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           }
 
           return AlertDialog(
+            insetPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             title: Text(isEdicao ? "Prontuário Completo da Paciente" : "Novo Cadastro de Paciente", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
             content: Theme(
               data: Theme.of(context).copyWith(visualDensity: VisualDensity.compact),
               child: Container(
-                width: 1120, // Modal mais largo, para os campos ficarem lado a lado com folga
-                height: 760,
+                width: MediaQuery.of(context).size.width * 0.94 > 1400 ? 1400 : MediaQuery.of(context).size.width * 0.94,
+                height: MediaQuery.of(context).size.height * 0.94,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -363,7 +364,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                         padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
                         child: Text("1. DADOS PESSOAIS", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
                       ),
-                      SizedBox(height: 10),
+                      SizedBox(height: 6),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -378,7 +379,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                 SizedBox(width: 10),
                                 Expanded(child: TextField(controller: rgCtrl, decoration: PolifenoisTema.inputDecoracao("RG", Icons.fingerprint))),
                               ]),
-                              SizedBox(height: 10),
+                              SizedBox(height: 6),
                               Row(children: [
                                 Expanded(child: TextField(controller: nascCtrl, decoration: PolifenoisTema.inputDecoracao("Nascimento (AAAA-MM-DD)", Icons.calendar_today))),
                                 SizedBox(width: 10),
@@ -386,7 +387,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                 SizedBox(width: 10),
                                 Expanded(flex: 2, child: TextField(controller: emailCtrl, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email))),
                               ]),
-                              SizedBox(height: 10),
+                              SizedBox(height: 6),
                               Row(children: [
                                 Expanded(child: TextField(controller: celCtrl, decoration: PolifenoisTema.inputDecoracao("Celular", Icons.phone_android))),
                                 SizedBox(width: 10),
@@ -394,7 +395,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                 SizedBox(width: 10),
                                 Expanded(flex: 2, child: TextField(controller: maeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome da Mãe", Icons.woman))),
                               ]),
-                              SizedBox(height: 10),
+                              SizedBox(height: 6),
                               Row(children: [
                                 Expanded(child: TextField(controller: nacioCtrl, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
                                 SizedBox(width: 10),
@@ -447,7 +448,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
                       child: Text("2. ENDEREÇO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
                     ),
-                    SizedBox(height: 10),
+                    SizedBox(height: 6),
                     Row(children: [
                       Expanded(child: TextField(controller: cepCtrl, decoration: PolifenoisTema.inputDecoracao("CEP", Icons.map))),
                       SizedBox(width: 10),
@@ -455,7 +456,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       SizedBox(width: 10),
                       Expanded(child: TextField(controller: numCtrl, decoration: PolifenoisTema.inputDecoracao("Número", Icons.numbers))),
                     ]),
-                    SizedBox(height: 10),
+                    SizedBox(height: 6),
                     Row(children: [
                       Expanded(flex: 2, child: TextField(controller: compCtrl, decoration: PolifenoisTema.inputDecoracao("Complemento", Icons.info))),
                       SizedBox(width: 10),
@@ -464,14 +465,14 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       Expanded(child: TextField(controller: estadoCtrl, decoration: PolifenoisTema.inputDecoracao("Estado (UF)", Icons.location_on))),
                     ]),
 
-                    SizedBox(height: 16),
+                    SizedBox(height: 10),
 
                     // SESSÃO 3: DADOS CLÍNICOS
                     Container(
                       padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
                       child: Text("3. DADOS CLÍNICOS E ACESSO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
                     ),
-                    SizedBox(height: 10),
+                    SizedBox(height: 6),
                     Row(children: [
                       Expanded(child: TextField(controller: semanaCtrl, decoration: PolifenoisTema.inputDecoracao("Semanas de Gestação", Icons.calendar_month))),
                       if (!isEdicao) ...[
@@ -479,13 +480,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                         Expanded(child: TextField(controller: senhaCtrl, decoration: PolifenoisTema.inputDecoracao("Senha Provisória", Icons.lock), obscureText: true)),
                       ]
                     ]),
-                    SizedBox(height: 10),
+                    SizedBox(height: 6),
                     Row(children: [
                       Expanded(flex: 2, child: TextField(controller: medCtrl, decoration: PolifenoisTema.inputDecoracao("Médico Obstetra", Icons.medical_services))),
                       SizedBox(width: 10),
                       Expanded(child: TextField(controller: crmCtrl, decoration: PolifenoisTema.inputDecoracao("CRM", Icons.badge))),
                     ]),
-                    SizedBox(height: 10),
+                    SizedBox(height: 6),
                     Row(children: [
                       Expanded(flex: 2, child: TextField(controller: nutriCtrl, decoration: PolifenoisTema.inputDecoracao("Nutricionista", Icons.local_dining))),
                       SizedBox(width: 10),
@@ -497,12 +498,12 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     // SESSÃO 4: REGISTRO DE REFEIÇÕES — fora do bloco fixo, ocupa o espaço
                     // restante e rola sozinha, com o cabeçalho da tabela sempre visível.
                     if (isEdicao) ...[
-                      SizedBox(height: 16),
+                      SizedBox(height: 8),
                       Container(
-                        padding: EdgeInsets.all(8), color: Colors.green.shade50, width: double.infinity,
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5), color: Colors.green.shade50, width: double.infinity,
                         child: Text("4. REGISTRO DE REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13)),
                       ),
-                      SizedBox(height: 8),
+                      SizedBox(height: 6),
                       // CABEÇALHO FIXO DA TABELA
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),

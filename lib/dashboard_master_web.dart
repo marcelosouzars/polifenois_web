@@ -95,6 +95,43 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     }
   }
 
+  bool _senhaForte(String senha) {
+    if (senha.length < 6) return false;
+    final temMaiuscula = RegExp(r'[A-Z]').hasMatch(senha);
+    final temNumero = RegExp(r'[0-9]').hasMatch(senha);
+    final temEspecial = RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-\[\]]').hasMatch(senha);
+    return temMaiuscula && temNumero && temEspecial;
+  }
+
+  static const String _regraSenha =
+      "A senha precisa ter no mínimo 6 caracteres, incluindo:\n"
+      "• 1 letra maiúscula\n"
+      "• 1 número\n"
+      "• 1 caractere especial (@ # \$ % & etc.)";
+
+  void _popupAlterarSenha(BuildContext dialogContext, {required bool sucesso, required String mensagem}) {
+    showDialog(
+      context: dialogContext,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(sucesso ? Icons.check_circle : Icons.error, color: sucesso ? Colors.green : Colors.red, size: 26),
+            SizedBox(width: 10),
+            Text(sucesso ? "Sucesso" : "Atenção"),
+          ],
+        ),
+        content: Text(mensagem, style: TextStyle(fontSize: 14.5)),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+            child: Text("OK", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _abrirAlterarSenha() {
     final senhaAtualCtrl = TextEditingController();
     final novaSenhaCtrl = TextEditingController();
@@ -104,13 +141,14 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setModalState) => AlertDialog(
           title: Text("Alterar Senha", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
           content: Container(
             width: 380,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
                   controller: senhaAtualCtrl,
@@ -133,6 +171,10 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     ),
                   ),
                 ),
+                Padding(
+                  padding: EdgeInsets.only(top: 6, left: 4),
+                  child: Text("Mín. 6 caracteres, 1 maiúscula, 1 número, 1 especial", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                ),
                 SizedBox(height: 12),
                 TextField(
                   controller: confirmarSenhaCtrl,
@@ -148,15 +190,19 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCELAR")),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text("CANCELAR")),
             ElevatedButton(
               onPressed: salvando ? null : () async {
                 if (senhaAtualCtrl.text.isEmpty || novaSenhaCtrl.text.isEmpty || confirmarSenhaCtrl.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Preencha todos os campos."), backgroundColor: Colors.orange));
+                  _popupAlterarSenha(dialogContext, sucesso: false, mensagem: "Preencha todos os campos.");
+                  return;
+                }
+                if (!_senhaForte(novaSenhaCtrl.text)) {
+                  _popupAlterarSenha(dialogContext, sucesso: false, mensagem: _regraSenha);
                   return;
                 }
                 if (novaSenhaCtrl.text != confirmarSenhaCtrl.text) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("A nova senha e a confirmação não coincidem."), backgroundColor: Colors.red));
+                  _popupAlterarSenha(dialogContext, sucesso: false, mensagem: "A nova senha e a confirmação não coincidem. Corrija os dois campos e tente novamente.");
                   return;
                 }
                 setModalState(() => salvando = true);
@@ -171,16 +217,16 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     }),
                   );
                   final data = jsonDecode(res.body);
+                  setModalState(() => salvando = false);
                   if (res.statusCode == 200) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Senha alterada com sucesso!"), backgroundColor: Colors.green));
+                    Navigator.pop(dialogContext);
+                    _popupAlterarSenha(context, sucesso: true, mensagem: "Senha alterada com sucesso!");
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['erro'] ?? "Senha atual incorreta."), backgroundColor: Colors.red));
+                    _popupAlterarSenha(dialogContext, sucesso: false, mensagem: data['erro'] ?? "Senha atual incorreta.");
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro de conexão."), backgroundColor: Colors.red));
-                } finally {
                   setModalState(() => salvando = false);
+                  _popupAlterarSenha(dialogContext, sucesso: false, mensagem: "Erro de conexão. Verifique sua internet e tente novamente.");
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),

@@ -125,94 +125,78 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           title: Text("Alterar Senha", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
           content: Container(
             width: 380,
-            child: Stack(
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: senhaAtualCtrl,
-                      obscureText: !senhaAtualVisivel,
-                      decoration: PolifenoisTema.inputDecoracao("Senha atual", Icons.lock_outline).copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(senhaAtualVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
-                          onPressed: () => setModalState(() => senhaAtualVisivel = !senhaAtualVisivel),
+            child: avisoMsg != null
+                // AVISO substitui o formulário por completo enquanto está visível
+                // (evita qualquer sobreposição/Z-order que pudesse "roubar" o toque do botão).
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(avisoSucesso ? Icons.check_circle : Icons.error, color: avisoSucesso ? Colors.green : Colors.red, size: 46),
+                      SizedBox(height: 12),
+                      Text(avisoSucesso ? "Sucesso" : "Atenção", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      SizedBox(height: 10),
+                      Text(avisoMsg!, textAlign: TextAlign.center, style: TextStyle(fontSize: 14)),
+                      SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (avisoSucesso) {
+                              Navigator.pop(dialogContext);
+                            } else {
+                              setModalState(() => avisoMsg = null);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, padding: EdgeInsets.symmetric(vertical: 12)),
+                          child: Text("OK", style: TextStyle(color: Colors.white)),
                         ),
                       ),
-                    ),
-                    SizedBox(height: 12),
-                    TextField(
-                      controller: novaSenhaCtrl,
-                      obscureText: !novaSenhaVisivel,
-                      decoration: PolifenoisTema.inputDecoracao("Nova senha", Icons.lock).copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(novaSenhaVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
-                          onPressed: () => setModalState(() => novaSenhaVisivel = !novaSenhaVisivel),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(top: 6, left: 4),
-                      child: Text("Mín. 6 caracteres, 1 maiúscula, 1 número, 1 especial", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                    ),
-                    SizedBox(height: 12),
-                    TextField(
-                      controller: confirmarSenhaCtrl,
-                      obscureText: !confirmarVisivel,
-                      decoration: PolifenoisTema.inputDecoracao("Confirmar nova senha", Icons.lock).copyWith(
-                        suffixIcon: IconButton(
-                          icon: Icon(confirmarVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
-                          onPressed: () => setModalState(() => confirmarVisivel = !confirmarVisivel),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                // Aviso central "flutuante" — não abre um dialog novo, só desenha por cima,
-                // pra não quebrar o foco/teclado dos campos (era a causa do "travamento").
-                if (avisoMsg != null)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withOpacity(0.55),
-                      child: Center(
-                        child: Container(
-                          margin: EdgeInsets.all(16),
-                          padding: EdgeInsets.all(20),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(avisoSucesso ? Icons.check_circle : Icons.error, color: avisoSucesso ? Colors.green : Colors.red, size: 38),
-                              SizedBox(height: 10),
-                              Text(avisoSucesso ? "Sucesso" : "Atenção", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                              SizedBox(height: 8),
-                              Text(avisoMsg!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
-                              SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    if (avisoSucesso) {
-                                      Navigator.pop(dialogContext);
-                                    } else {
-                                      setModalState(() => avisoMsg = null);
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
-                                  child: Text("OK", style: TextStyle(color: Colors.white)),
-                                ),
-                              ),
-                            ],
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: senhaAtualCtrl,
+                        obscureText: !senhaAtualVisivel,
+                        decoration: PolifenoisTema.inputDecoracao("Senha atual", Icons.lock_outline).copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(senhaAtualVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                            onPressed: () => setModalState(() => senhaAtualVisivel = !senhaAtualVisivel),
                           ),
                         ),
                       ),
-                    ),
+                      SizedBox(height: 12),
+                      TextField(
+                        controller: novaSenhaCtrl,
+                        obscureText: !novaSenhaVisivel,
+                        decoration: PolifenoisTema.inputDecoracao("Nova senha", Icons.lock).copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(novaSenhaVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                            onPressed: () => setModalState(() => novaSenhaVisivel = !novaSenhaVisivel),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(top: 6, left: 4),
+                        child: Text("Mín. 6 caracteres, 1 maiúscula, 1 número, 1 especial", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                      ),
+                      SizedBox(height: 12),
+                      TextField(
+                        controller: confirmarSenhaCtrl,
+                        obscureText: !confirmarVisivel,
+                        decoration: PolifenoisTema.inputDecoracao("Confirmar nova senha", Icons.lock).copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(confirmarVisivel ? Icons.visibility_off : Icons.visibility, size: 20),
+                            onPressed: () => setModalState(() => confirmarVisivel = !confirmarVisivel),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-              ],
-            ),
           ),
-          actions: [
+          actions: avisoMsg != null ? [] : [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text("CANCELAR")),
             ElevatedButton(
               onPressed: salvando ? null : () async {

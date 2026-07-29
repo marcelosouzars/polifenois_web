@@ -1,5 +1,5 @@
 //
-// DASHBOARD_MASTER_WEB.DART
+// DASHBOARD_MOBILE_APP.DART
 //
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -31,6 +31,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   bool _carregandoPacientes = true;
   Uint8List? _fotoPerfilBytes;
   String _unidade = 'mg';
+  String _providerIA = 'gemini';
 
   // --- FILTROS DA LISTA DE GESTANTES ---
   final TextEditingController _filtroNome = TextEditingController();
@@ -57,6 +58,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     super.initState();
     _buscarEstatisticas();
     _carregarUnidade();
+    _carregarProviderIA();
   }
 
   Future<void> _carregarUnidade() async {
@@ -69,6 +71,20 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     await prefs.setString('unidade_polifenois', unidade);
     setState(() => _unidade = unidade);
     if (setModalState != null) setModalState(() {});
+  }
+
+  // Busca no backend qual IA está ativa no momento (Gemini ou Claude),
+  // para que a tela de Configurações já abra mostrando a seleção correta.
+  Future<void> _carregarProviderIA() async {
+    try {
+      final res = await http.get(Uri.parse("https://polifenois-backend.onrender.com/configuracao-ia"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (mounted) setState(() => _providerIA = data['provider'] ?? 'gemini');
+      }
+    } catch (e) {
+      // Mantém 'gemini' como padrão se não conseguir consultar agora.
+    }
   }
 
   String _formatarPolifenois(dynamic valorMg) {
@@ -248,6 +264,11 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   }
 
   void _abrirConfiguracoes() {
+    // Cópia local da IA ativa: só é gravada de verdade no backend quando
+    // o usuário clicar em "SALVAR IA" (não é instantâneo como o mg/g).
+    String providerSelecionado = _providerIA;
+    bool salvandoIA = false;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -276,6 +297,61 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                   "Vale só pra este computador — não afeta o que os outros usuários veem.",
                   style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
                 ),
+
+                Divider(height: 30),
+                Text("Inteligência Artificial (Análise de Refeições)", style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+                SizedBox(height: 10),
+                ToggleButtons(
+                  isSelected: [providerSelecionado == 'gemini', providerSelecionado == 'claude'],
+                  onPressed: salvandoIA ? null : (index) => setModalState(() => providerSelecionado = index == 0 ? 'gemini' : 'claude'),
+                  borderRadius: BorderRadius.circular(8),
+                  selectedColor: Colors.white,
+                  fillColor: PolifenoisTema.azulPrimario,
+                  color: PolifenoisTema.azulPrimario,
+                  constraints: BoxConstraints(minHeight: 38, minWidth: 90),
+                  children: [Text("Gemini"), Text("Claude")],
+                ),
+                SizedBox(height: 8),
+                Text(
+                  "Define qual IA identifica os alimentos nas fotos das refeições enviadas pelo app.",
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                ),
+                SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: salvandoIA ? null : () async {
+                      setModalState(() => salvandoIA = true);
+                      try {
+                        final res = await http.put(
+                          Uri.parse("https://polifenois-backend.onrender.com/configuracao-ia"),
+                          headers: {"Content-Type": "application/json"},
+                          body: jsonEncode({"provider": providerSelecionado}),
+                        );
+                        if (res.statusCode == 200) {
+                          setState(() => _providerIA = providerSelecionado);
+                          setModalState(() => salvandoIA = false);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text("IA de análise definida para: ${providerSelecionado == 'claude' ? 'Claude' : 'Gemini'}"),
+                            backgroundColor: Colors.green,
+                          ));
+                        } else {
+                          setModalState(() => salvandoIA = false);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao salvar. Tente novamente."), backgroundColor: Colors.red));
+                        }
+                      } catch (e) {
+                        setModalState(() => salvandoIA = false);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro de conexão."), backgroundColor: Colors.red));
+                      }
+                    },
+                    icon: salvandoIA
+                        ? SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Icon(Icons.save, size: 16, color: Colors.white),
+                    label: Text(salvandoIA ? "Salvando..." : "SALVAR IA", style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, padding: EdgeInsets.symmetric(vertical: 12)),
+                  ),
+                ),
+
                 Divider(height: 30),
                 Text("Segurança", style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
                 SizedBox(height: 10),

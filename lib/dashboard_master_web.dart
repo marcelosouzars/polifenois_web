@@ -41,9 +41,11 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   final TextEditingController _filtroNascFim = TextEditingController();
   final TextEditingController _filtroIdadeMin = TextEditingController();
   final TextEditingController _filtroIdadeMax = TextEditingController();
-  final TextEditingController _filtroCidade = TextEditingController();
+  String? _filtroCidade;
   String _filtroEstado = 'TODOS';
   bool _filtroSemRefeicoes = false;
+  List<String> _cidadesDoEstado = [];
+  bool _carregandoCidadesFiltro = false;
 
   static const List<String> _ufs = [
     'TODOS','AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
@@ -429,6 +431,31 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     } catch (e) { return null; }
   }
 
+  // Busca as cidades do estado selecionado via API pública do IBGE.
+  // Chamada sempre que o filtro de Estado muda (exceto quando volta para "TODOS").
+  Future<void> _buscarCidadesPorEstado(String uf) async {
+    setState(() {
+      _carregandoCidadesFiltro = true;
+      _cidadesDoEstado = [];
+      _filtroCidade = null;
+    });
+    try {
+      final response = await http.get(
+        Uri.parse("https://servicodados.ibge.gov.br/api/v1/localidades/estados/$uf/municipios"),
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> dados = jsonDecode(response.body);
+        final nomes = dados.map((m) => m['nome'].toString()).toList();
+        nomes.sort();
+        if (mounted) setState(() => _cidadesDoEstado = nomes);
+      }
+    } catch (e) {
+      print("Erro ao buscar cidades do IBGE: $e");
+    } finally {
+      if (mounted) setState(() => _carregandoCidadesFiltro = false);
+    }
+  }
+
   Future<void> _selecionarData(TextEditingController ctrl) async {
     final DateTime? escolhida = await showDatePicker(
       context: context,
@@ -450,20 +477,25 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           return false;
         }
 
-        // Data de cadastro (inicial/final)
+        // Data de cadastro (inicial/final) — tryParse: se o texto digitado ainda
+        // estiver incompleto/inválido, o filtro é simplesmente ignorado (não trava a tela).
         if (_filtroCadIni.text.isNotEmpty || _filtroCadFim.text.isNotEmpty) {
           DateTime? dCad = _parseData(p['data_cadastro']);
           if (dCad == null) return false;
-          if (_filtroCadIni.text.isNotEmpty && dCad.isBefore(DateTime.parse(_filtroCadIni.text))) return false;
-          if (_filtroCadFim.text.isNotEmpty && dCad.isAfter(DateTime.parse(_filtroCadFim.text).add(Duration(days: 1)))) return false;
+          final DateTime? cadIni = DateTime.tryParse(_filtroCadIni.text);
+          final DateTime? cadFim = DateTime.tryParse(_filtroCadFim.text);
+          if (cadIni != null && dCad.isBefore(cadIni)) return false;
+          if (cadFim != null && dCad.isAfter(cadFim.add(Duration(days: 1)))) return false;
         }
 
         // Nascimento (inicial/final)
         if (_filtroNascIni.text.isNotEmpty || _filtroNascFim.text.isNotEmpty) {
           DateTime? dNasc = _parseData(p['data_nascimento']);
           if (dNasc == null) return false;
-          if (_filtroNascIni.text.isNotEmpty && dNasc.isBefore(DateTime.parse(_filtroNascIni.text))) return false;
-          if (_filtroNascFim.text.isNotEmpty && dNasc.isAfter(DateTime.parse(_filtroNascFim.text))) return false;
+          final DateTime? nascIni = DateTime.tryParse(_filtroNascIni.text);
+          final DateTime? nascFim = DateTime.tryParse(_filtroNascFim.text);
+          if (nascIni != null && dNasc.isBefore(nascIni)) return false;
+          if (nascFim != null && dNasc.isAfter(nascFim)) return false;
         }
 
         // Idade (min/max)
@@ -480,9 +512,9 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
         // Estado
         if (_filtroEstado != 'TODOS' && (p['estado'] ?? '').toString() != _filtroEstado) return false;
 
-        // Cidade
-        if (_filtroCidade.text.isNotEmpty &&
-            !(p['cidade'] ?? '').toString().toLowerCase().contains(_filtroCidade.text.toLowerCase())) {
+        // Cidade (agora é seleção exata vinda do dropdown, não mais texto livre)
+        if (_filtroCidade != null && _filtroCidade!.isNotEmpty &&
+            (p['cidade'] ?? '').toString() != _filtroCidade) {
           return false;
         }
 
@@ -505,9 +537,12 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     _filtroNascFim.clear();
     _filtroIdadeMin.clear();
     _filtroIdadeMax.clear();
-    _filtroCidade.clear();
-    setState(() => _filtroEstado = 'TODOS');
-    setState(() => _filtroSemRefeicoes = false);
+    setState(() {
+      _filtroEstado = 'TODOS';
+      _filtroCidade = null;
+      _cidadesDoEstado = [];
+      _filtroSemRefeicoes = false;
+    });
     _aplicarFiltros();
   }
 
@@ -1398,12 +1433,21 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
 
   Widget _campoFiltroData(String label, TextEditingController ctrl) {
     return SizedBox(
-      width: 130,
+      width: 150,
       child: TextField(
         controller: ctrl,
-        readOnly: true,
-        onTap: () => _selecionarData(ctrl),
-        decoration: PolifenoisTema.inputDecoracao(label, Icons.calendar_today).copyWith(isDense: true),
+        // Agora aceita digitação livre (formato AAAA-MM-DD). O ícone de
+        // calendário continua disponível como atalho para quem preferir escolher a data.
+        keyboardType: TextInputType.datetime,
+        decoration: PolifenoisTema.inputDecoracao(label, Icons.calendar_today).copyWith(
+          isDense: true,
+          hintText: 'AAAA-MM-DD',
+          suffixIcon: IconButton(
+            icon: Icon(Icons.calendar_today, size: 16),
+            onPressed: () => _selecionarData(ctrl),
+            tooltip: "Escolher no calendário",
+          ),
+        ),
         style: TextStyle(fontSize: 12),
       ),
     );
@@ -1489,14 +1533,36 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       decoration: PolifenoisTema.inputDecoracao("Estado", Icons.location_on).copyWith(isDense: true),
                       style: TextStyle(fontSize: 12, color: Colors.black87),
                       items: _ufs.map((uf) => DropdownMenuItem(value: uf, child: Text(uf))).toList(),
-                      onChanged: (v) => setState(() => _filtroEstado = v ?? 'TODOS'),
+                      onChanged: (v) {
+                        setState(() => _filtroEstado = v ?? 'TODOS');
+                        if (v != null && v != 'TODOS') {
+                          _buscarCidadesPorEstado(v);
+                        } else {
+                          setState(() { _cidadesDoEstado = []; _filtroCidade = null; });
+                        }
+                      },
                     ),
                   ),
                   SizedBox(width: 8),
                   SizedBox(
-                    width: 140,
-                    child: TextField(controller: _filtroCidade,
-                      decoration: PolifenoisTema.inputDecoracao("Cidade", Icons.location_city).copyWith(isDense: true), style: TextStyle(fontSize: 12)),
+                    width: 170,
+                    child: DropdownButtonFormField<String>(
+                      value: _filtroCidade,
+                      isExpanded: true,
+                      decoration: PolifenoisTema.inputDecoracao(
+                        _carregandoCidadesFiltro ? "Carregando..." : "Cidade",
+                        Icons.location_city,
+                      ).copyWith(isDense: true),
+                      style: TextStyle(fontSize: 12, color: Colors.black87),
+                      hint: Text(
+                        _filtroEstado == 'TODOS' ? "Selecione um estado" : "Todas",
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      ),
+                      items: _cidadesDoEstado.map((cidade) => DropdownMenuItem(value: cidade, child: Text(cidade, overflow: TextOverflow.ellipsis))).toList(),
+                      onChanged: (_filtroEstado == 'TODOS' || _carregandoCidadesFiltro)
+                          ? null
+                          : (v) => setState(() => _filtroCidade = v),
+                    ),
                   ),
                 ]),
                 _grupoFiltro("ENGAJAMENTO", [

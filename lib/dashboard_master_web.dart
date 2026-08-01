@@ -32,6 +32,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   Uint8List? _fotoPerfilBytes;
   String _unidade = 'mg';
   String _providerIA = 'gemini';
+  List<int> _trimestresMonitorados = [1, 2, 3];
 
   // --- FILTROS DA LISTA DE GESTANTES ---
   final TextEditingController _filtroNome = TextEditingController();
@@ -61,6 +62,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     _buscarEstatisticas();
     _carregarUnidade();
     _carregarProviderIA();
+    _carregarTrimestresMonitorados();
   }
 
   Future<void> _carregarUnidade() async {
@@ -89,7 +91,47 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     }
   }
 
-  String _formatarPolifenois(dynamic valorMg) {
+  Future<void> _carregarTrimestresMonitorados() async {
+    try {
+      final res = await http.get(Uri.parse("https://polifenois-backend.onrender.com/configuracao-trimestres"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final lista = (data['trimestres'] as List<dynamic>? ?? [1, 2, 3]).map((e) => e as int).toList();
+        if (mounted) setState(() => _trimestresMonitorados = lista);
+      }
+    } catch (e) {
+      // Mantém [1,2,3] como padrão se não conseguir consultar agora.
+    }
+  }
+
+  // Busca o status diário de polifenóis de uma gestante específica (usado no prontuário).
+  Future<Map<String, dynamic>?> _buscarStatusDiario(int usuarioId) async {
+    try {
+      final res = await http.get(Uri.parse("https://polifenois-backend.onrender.com/status-polifenois/$usuarioId"));
+      if (res.statusCode == 200) return jsonDecode(res.body);
+    } catch (e) {
+      // silencioso — o indicador simplesmente não aparece se a consulta falhar
+    }
+    return null;
+  }
+
+  Color _corDoStatus(String? classificacao) {
+    switch (classificacao) {
+      case 'verde': return Colors.green.shade600;
+      case 'amarelo': return Colors.orange.shade700;
+      case 'vermelho': return Colors.red.shade600;
+      default: return Colors.grey;
+    }
+  }
+
+  String _textoDoStatus(String? classificacao) {
+    switch (classificacao) {
+      case 'verde': return 'Consumo adequado hoje';
+      case 'amarelo': return 'Atenção: perto do limite diário';
+      case 'vermelho': return 'Exposição elevada hoje';
+      default: return '';
+    }
+  }
     double valor = 0;
     if (valorMg is num) {
       valor = valorMg.toDouble();
@@ -270,6 +312,8 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     // o usuário clicar em "SALVAR IA" (não é instantâneo como o mg/g).
     String providerSelecionado = _providerIA;
     bool salvandoIA = false;
+    List<int> trimestresSelecionados = List<int>.from(_trimestresMonitorados);
+    bool salvandoTrimestres = false;
 
     showDialog(
       context: context,
@@ -350,6 +394,66 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                         ? SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : Icon(Icons.save, size: 16, color: Colors.white),
                     label: Text(salvandoIA ? "Salvando..." : "SALVAR IA", style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, padding: EdgeInsets.symmetric(vertical: 12)),
+                  ),
+                ),
+
+                Divider(height: 30),
+                Text("Monitoramento de Limite Diário de Polifenóis", style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+                SizedBox(height: 10),
+                Text(
+                  "O sistema calcula o consumo de polifenóis por dia (00:00 às 23:59) e sinaliza a gestante e a equipe clínica ao se aproximar do limite. Selecione em quais trimestres de gestação esse controle deve estar ativo:",
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                ),
+                SizedBox(height: 10),
+                ...[1, 2, 3].map((trimestre) => CheckboxListTile(
+                  value: trimestresSelecionados.contains(trimestre),
+                  onChanged: salvandoTrimestres ? null : (marcado) {
+                    setModalState(() {
+                      if (marcado == true) {
+                        trimestresSelecionados.add(trimestre);
+                      } else {
+                        trimestresSelecionados.remove(trimestre);
+                      }
+                    });
+                  },
+                  title: Text("${trimestre}º Trimestre", style: TextStyle(fontSize: 13)),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                )).toList(),
+                SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: salvandoTrimestres ? null : () async {
+                      setModalState(() => salvandoTrimestres = true);
+                      try {
+                        final res = await http.put(
+                          Uri.parse("https://polifenois-backend.onrender.com/configuracao-trimestres"),
+                          headers: {"Content-Type": "application/json"},
+                          body: jsonEncode({"trimestres": trimestresSelecionados}),
+                        );
+                        if (res.statusCode == 200) {
+                          setState(() => _trimestresMonitorados = List<int>.from(trimestresSelecionados));
+                          setModalState(() => salvandoTrimestres = false);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text("Monitoramento de limite diário atualizado!"),
+                            backgroundColor: Colors.green,
+                          ));
+                        } else {
+                          setModalState(() => salvandoTrimestres = false);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao salvar. Tente novamente."), backgroundColor: Colors.red));
+                        }
+                      } catch (e) {
+                        setModalState(() => salvandoTrimestres = false);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro de conexão."), backgroundColor: Colors.red));
+                      }
+                    },
+                    icon: salvandoTrimestres
+                        ? SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Icon(Icons.save, size: 16, color: Colors.white),
+                    label: Text(salvandoTrimestres ? "Salvando..." : "SALVAR MONITORAMENTO", style: TextStyle(color: Colors.white)),
                     style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario, padding: EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
@@ -605,6 +709,10 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     List<dynamic> refeicoes = [];
     bool carregandoRefeicoes = isEdicao;
 
+    // Status diário de polifenóis (indicador colorido para a equipe clínica)
+    Map<String, dynamic>? statusDiario;
+    bool carregandoStatusDiario = isEdicao;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -619,6 +727,15 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                   carregandoRefeicoes = false;
                 });
               }
+            });
+          }
+
+          if (isEdicao && carregandoStatusDiario && statusDiario == null) {
+            _buscarStatusDiario(paciente['id']).then((resultado) {
+              setModalState(() {
+                statusDiario = resultado;
+                carregandoStatusDiario = false;
+              });
             });
           }
 
@@ -637,6 +754,36 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // INDICADOR DE LIMITE DIÁRIO DE POLIFENÓIS (visível para a equipe clínica)
+                      if (isEdicao)
+                        carregandoStatusDiario
+                            ? Padding(
+                                padding: EdgeInsets.only(bottom: 10),
+                                child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                              )
+                            : (statusDiario == null || statusDiario!['monitorar'] != true)
+                                ? SizedBox.shrink()
+                                : Container(
+                                    margin: EdgeInsets.only(bottom: 12),
+                                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: _corDoStatus(statusDiario!['classificacao']).withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: _corDoStatus(statusDiario!['classificacao'])),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.circle, size: 12, color: _corDoStatus(statusDiario!['classificacao'])),
+                                        SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            "${_textoDoStatus(statusDiario!['classificacao'])} — Consumo hoje: ${_formatarPolifenois(statusDiario!['total_hoje'])} de ${_formatarPolifenois(statusDiario!['limite_adequado'])} recomendados",
+                                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _corDoStatus(statusDiario!['classificacao'])),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                       // SESSÃO 1: DADOS PESSOAIS
                       Container(
                         padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,

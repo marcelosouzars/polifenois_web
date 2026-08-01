@@ -55,6 +55,35 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     return "${valor.toStringAsFixed(1)} mg";
   }
 
+  // Busca o status diário de polifenóis de uma gestante específica (usado no prontuário).
+  Future<Map<String, dynamic>?> _buscarStatusDiario(int usuarioId) async {
+    try {
+      final res = await http.get(Uri.parse("https://polifenois-backend.onrender.com/status-polifenois/$usuarioId"));
+      if (res.statusCode == 200) return jsonDecode(res.body);
+    } catch (e) {
+      // silencioso — o indicador simplesmente não aparece se a consulta falhar
+    }
+    return null;
+  }
+
+  Color _corDoStatus(String? classificacao) {
+    switch (classificacao) {
+      case 'verde': return Colors.green.shade600;
+      case 'amarelo': return Colors.orange.shade700;
+      case 'vermelho': return Colors.red.shade600;
+      default: return Colors.grey;
+    }
+  }
+
+  String _textoDoStatus(String? classificacao) {
+    switch (classificacao) {
+      case 'verde': return 'Consumo adequado hoje';
+      case 'amarelo': return 'Atenção: perto do limite diário';
+      case 'vermelho': return 'Exposição elevada hoje';
+      default: return '';
+    }
+  }
+
   Future<void> _carregarPacientes() async {
     setState(() => _loading = true);
     try {
@@ -115,6 +144,10 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     List<dynamic> refeicoes = [];
     bool carregandoRefeicoes = isEdicao;
 
+    // Status diário de polifenóis (indicador colorido para a equipe clínica)
+    Map<String, dynamic>? statusDiario;
+    bool carregandoStatusDiario = isEdicao;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -131,6 +164,15 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
             });
           }
 
+          if (isEdicao && carregandoStatusDiario && statusDiario == null) {
+            _buscarStatusDiario(paciente['id']).then((resultado) {
+              setModalState(() {
+                statusDiario = resultado;
+                carregandoStatusDiario = false;
+              });
+            });
+          }
+
           return AlertDialog(
             title: Text(isEdicao ? "Prontuário Completo da Paciente" : "Novo Cadastro de Paciente", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
             content: Container(
@@ -139,6 +181,36 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // INDICADOR DE LIMITE DIÁRIO DE POLIFENÓIS
+                    if (isEdicao)
+                      carregandoStatusDiario
+                          ? Padding(
+                              padding: EdgeInsets.only(bottom: 15),
+                              child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                            )
+                          : (statusDiario == null || statusDiario!['monitorar'] != true)
+                              ? SizedBox.shrink()
+                              : Container(
+                                  margin: EdgeInsets.only(bottom: 15),
+                                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: _corDoStatus(statusDiario!['classificacao']).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: _corDoStatus(statusDiario!['classificacao'])),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.circle, size: 12, color: _corDoStatus(statusDiario!['classificacao'])),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          "${_textoDoStatus(statusDiario!['classificacao'])} — Consumo hoje: ${_formatarPolifenois(statusDiario!['total_hoje'])} de ${_formatarPolifenois(statusDiario!['limite_adequado'])} recomendados",
+                                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: _corDoStatus(statusDiario!['classificacao'])),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                     Container(
                       padding: EdgeInsets.all(10), color: Colors.blue.shade50, width: double.infinity,
                       child: Text("1. DADOS PESSOAIS", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
@@ -448,8 +520,6 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
           content: Container(
             width: 380,
             child: avisoMsg != null
-                // AVISO substitui o formulário por completo enquanto está visível
-                // (evita qualquer sobreposição/Z-order que pudesse "roubar" o toque do botão).
                 ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

@@ -707,9 +707,9 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       } catch (e) { print("Erro ao selecionar foto da paciente: $e"); }
     }
 
-    // Variaveis da Galeria de Fotos
-    List<dynamic> refeicoes = [];
-    bool carregandoRefeicoes = isEdicao;
+    // Histórico agrupado por dia (cada dia com seu semáforo de consumo)
+    List<dynamic> diasAgrupados = [];
+    bool carregandoDias = isEdicao;
 
     // Status diário de polifenóis (indicador colorido para a equipe clínica)
     Map<String, dynamic>? statusDiario;
@@ -720,13 +720,13 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
 
-          // Se for edição e ainda não carregou as refeições, busca no backend
-          if (isEdicao && carregandoRefeicoes && refeicoes.isEmpty) {
-            http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes-gestante/${paciente['id']}")).then((res) {
+          // Se for edição e ainda não carregou o histórico, busca no backend agrupado por dia
+          if (isEdicao && carregandoDias && diasAgrupados.isEmpty) {
+            http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes-por-dia/${paciente['id']}")).then((res) {
               if (res.statusCode == 200) {
                 setModalState(() {
-                  refeicoes = jsonDecode(res.body)['refeicoes'] ?? [];
-                  carregandoRefeicoes = false;
+                  diasAgrupados = jsonDecode(res.body)['dias'] ?? [];
+                  carregandoDias = false;
                 });
               }
             });
@@ -922,13 +922,14 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                     ],
                     ),
 
-                    // SESSÃO 4: REGISTRO DE REFEIÇÕES — fora do bloco fixo, ocupa o espaço
-                    // restante e rola sozinha, com o cabeçalho da tabela sempre visível.
+                    // SESSÃO 4: HISTÓRICO POR DIA — fora do bloco fixo, ocupa o espaço
+                    // restante e rola sozinha. Cada dia mostra o semáforo de consumo;
+                    // ao clicar, abre as refeições daquele dia específico.
                     if (isEdicao) ...[
                       SizedBox(height: 8),
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5), color: Colors.green.shade50, width: double.infinity,
-                        child: Text("4. REGISTRO DE REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13)),
+                        child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13)),
                       ),
                       SizedBox(height: 6),
                       // CABEÇALHO FIXO DA TABELA
@@ -937,21 +938,20 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                         color: Colors.green.shade50,
                         child: Row(
                           children: [
-                            SizedBox(width: 44, child: Text("FOTO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            Expanded(flex: 2, child: Text("DATA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            Expanded(flex: 2, child: Text("HORA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            Expanded(flex: 3, child: Text("TIPO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            Expanded(flex: 2, child: Text("PESO", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            Expanded(flex: 2, child: Text("AÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            SizedBox(width: 30, child: Text("")),
+                            Expanded(flex: 3, child: Text("DIA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            Expanded(flex: 2, child: Text("REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            Expanded(flex: 3, child: Text("TOTAL POLIFENÓIS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                            SizedBox(width: 90, child: Text("")),
                           ],
                         ),
                       ),
                       Divider(height: 1, color: Colors.green.shade200),
                       // CORPO ROLÁVEL (só essa parte rola, o resto do prontuário fica parado)
                       Expanded(
-                        child: carregandoRefeicoes
+                        child: carregandoDias
                             ? Center(child: CircularProgressIndicator())
-                            : refeicoes.isEmpty
+                            : diasAgrupados.isEmpty
                                 ? Center(
                                     child: Text(
                                       "Sem histórico de refeição",
@@ -959,39 +959,33 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                     ),
                                   )
                                 : ListView.builder(
-                                    itemCount: refeicoes.length,
+                                    itemCount: diasAgrupados.length,
                                     itemBuilder: (context, i) {
-                                      final r = refeicoes[i];
-                                      DateTime? dataHora;
-                                      try { dataHora = DateTime.parse(r['data_hora_registro'].toString()).toLocal(); } catch (e) {}
-                                      final temFoto = r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500;
-                                      return Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
-                                        child: Row(
-                                          children: [
-                                            SizedBox(
-                                              width: 44,
-                                              child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(6),
-                                                child: temFoto
-                                                    ? Image.memory(base64Decode(r['foto_prato_url']), width: 32, height: 32, fit: BoxFit.cover)
-                                                    : Container(width: 32, height: 32, color: Colors.grey.shade200, child: Icon(Icons.fastfood, size: 16, color: Colors.grey)),
+                                      final d = diasAgrupados[i];
+                                      DateTime? dataDia;
+                                      try { dataDia = DateTime.parse(d['data'].toString()); } catch (e) {}
+                                      final cor = _corDoStatus(d['classificacao']);
+                                      return InkWell(
+                                        onTap: () => _abrirDetalhesDoDia(paciente['id'], d['data'].toString(), cor),
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
+                                          child: Row(
+                                            children: [
+                                              SizedBox(width: 30, child: Icon(Icons.circle, size: 13, color: cor)),
+                                              Expanded(flex: 3, child: Text(dataDia != null ? "${DateFormat('dd/MM/yyyy').format(dataDia)} (${_nomeDiaSemana(dataDia)})" : d['data'].toString(), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
+                                              Expanded(flex: 2, child: Text("${d['quantidade_refeicoes']}", style: TextStyle(fontSize: 12))),
+                                              Expanded(flex: 3, child: Text(_formatarPolifenois(d['total_polifenois']), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cor))),
+                                              SizedBox(
+                                                width: 90,
+                                                child: TextButton(
+                                                  style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size(0, 0)),
+                                                  onPressed: () => _abrirDetalhesDoDia(paciente['id'], d['data'].toString(), cor),
+                                                  child: Text("VER DIA", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                                                ),
                                               ),
-                                            ),
-                                            Expanded(flex: 2, child: Text(dataHora != null ? DateFormat('dd/MM/yyyy').format(dataHora) : '-', style: TextStyle(fontSize: 12))),
-                                            Expanded(flex: 2, child: Text(dataHora != null ? DateFormat('HH:mm').format(dataHora) : '-', style: TextStyle(fontSize: 12))),
-                                            Expanded(flex: 3, child: Text(r['tipo_refeicao']?.toString() ?? '-', style: TextStyle(fontSize: 12))),
-                                            Expanded(flex: 2, child: Text("${r['peso_total_refeicao'] ?? '-'}g", style: TextStyle(fontSize: 12))),
-                                            Expanded(
-                                              flex: 2,
-                                              child: TextButton(
-                                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size(0, 0)),
-                                                onPressed: () => _abrirDetalhesRefeicaoMaster(r),
-                                                child: Text("DETALHES", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       );
                                     },
@@ -1023,6 +1017,103 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             ],
           );
         }
+      ),
+    );
+  }
+
+  // Nome do dia da semana em português, sem depender de inicialização de locale do intl
+  String _nomeDiaSemana(DateTime data) {
+    const nomes = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+    return nomes[data.weekday - 1];
+  }
+
+  // =========================================================================
+  // REFEIÇÕES DE UM DIA ESPECÍFICO (aberto ao clicar em um dia do histórico)
+  // =========================================================================
+  void _abrirDetalhesDoDia(int usuarioId, String data, Color corDoDia) {
+    List<dynamic> refeicoesDoDia = [];
+    bool carregando = true;
+    DateTime? dataFormatada;
+    try { dataFormatada = DateTime.parse(data); } catch (e) {}
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          if (carregando && refeicoesDoDia.isEmpty) {
+            http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes-gestante/$usuarioId/dia/$data")).then((res) {
+              if (res.statusCode == 200) {
+                setModalState(() {
+                  refeicoesDoDia = jsonDecode(res.body)['refeicoes'] ?? [];
+                  carregando = false;
+                });
+              } else {
+                setModalState(() => carregando = false);
+              }
+            });
+          }
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.circle, size: 14, color: corDoDia),
+                SizedBox(width: 10),
+                Text(
+                  dataFormatada != null
+                      ? "${DateFormat('dd/MM/yyyy').format(dataFormatada)} (${_nomeDiaSemana(dataFormatada)})"
+                      : data,
+                  style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            content: Container(
+              width: 560,
+              child: carregando
+                  ? Center(child: Padding(padding: EdgeInsets.all(30), child: CircularProgressIndicator()))
+                  : refeicoesDoDia.isEmpty
+                      ? Padding(padding: EdgeInsets.all(20), child: Text("Nenhuma refeição registrada neste dia.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)))
+                      : SingleChildScrollView(
+                          child: Column(
+                            children: refeicoesDoDia.map((r) {
+                              DateTime? hora;
+                              try { hora = DateTime.parse(r['data_hora_registro'].toString()).toLocal(); } catch (e) {}
+                              final temFoto = r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500;
+                              return Card(
+                                margin: EdgeInsets.only(bottom: 8),
+                                elevation: 1,
+                                child: ListTile(
+                                  leading: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: temFoto
+                                        ? Image.memory(base64Decode(r['foto_prato_url']), width: 44, height: 44, fit: BoxFit.cover)
+                                        : Container(width: 44, height: 44, color: Colors.grey.shade200, child: Icon(Icons.fastfood, size: 20, color: Colors.grey)),
+                                  ),
+                                  title: Text(r['tipo_refeicao']?.toString() ?? '-', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                  subtitle: Text(hora != null ? DateFormat('HH:mm').format(hora) : '-', style: TextStyle(fontSize: 12)),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(_formatarPolifenois(r['total_polifenois_refeicao']), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.green)),
+                                      Text("${r['peso_total_refeicao'] ?? '-'}g", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                    ],
+                                  ),
+                                  onTap: () => _abrirDetalhesRefeicaoMaster(r),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+                child: Text("FECHAR", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

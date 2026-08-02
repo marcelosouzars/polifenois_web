@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'tema_padrao_web.dart';
 import 'login_web.dart';
@@ -84,6 +85,207 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     }
   }
 
+  // Nome do dia da semana em português, sem depender de inicialização de locale do intl
+  String _nomeDiaSemana(DateTime data) {
+    const nomes = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+    return nomes[data.weekday - 1];
+  }
+
+  // =========================================================================
+  // REFEIÇÕES DE UM DIA ESPECÍFICO (aberto ao clicar em um dia do histórico)
+  // =========================================================================
+  void _abrirDetalhesDoDia(int usuarioId, String data, Color corDoDia) {
+    List<dynamic> refeicoesDoDia = [];
+    bool carregando = true;
+    DateTime? dataFormatada;
+    try { dataFormatada = DateTime.parse(data); } catch (e) {}
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          if (carregando && refeicoesDoDia.isEmpty) {
+            http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes-gestante/$usuarioId/dia/$data")).then((res) {
+              if (res.statusCode == 200) {
+                setModalState(() {
+                  refeicoesDoDia = jsonDecode(res.body)['refeicoes'] ?? [];
+                  carregando = false;
+                });
+              } else {
+                setModalState(() => carregando = false);
+              }
+            });
+          }
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.circle, size: 14, color: corDoDia),
+                SizedBox(width: 10),
+                Text(
+                  dataFormatada != null
+                      ? "${DateFormat('dd/MM/yyyy').format(dataFormatada)} (${_nomeDiaSemana(dataFormatada)})"
+                      : data,
+                  style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            content: Container(
+              width: 560,
+              child: carregando
+                  ? Center(child: Padding(padding: EdgeInsets.all(30), child: CircularProgressIndicator()))
+                  : refeicoesDoDia.isEmpty
+                      ? Padding(padding: EdgeInsets.all(20), child: Text("Nenhuma refeição registrada neste dia.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)))
+                      : SingleChildScrollView(
+                          child: Column(
+                            children: refeicoesDoDia.map((r) {
+                              DateTime? hora;
+                              try { hora = DateTime.parse(r['data_hora_registro'].toString()).toLocal(); } catch (e) {}
+                              final temFoto = r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500;
+                              return Card(
+                                margin: EdgeInsets.only(bottom: 8),
+                                elevation: 1,
+                                child: ListTile(
+                                  leading: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: temFoto
+                                        ? Image.memory(base64Decode(r['foto_prato_url']), width: 44, height: 44, fit: BoxFit.cover)
+                                        : Container(width: 44, height: 44, color: Colors.grey.shade200, child: Icon(Icons.fastfood, size: 20, color: Colors.grey)),
+                                  ),
+                                  title: Text(r['tipo_refeicao']?.toString() ?? '-', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                  subtitle: Text(hora != null ? DateFormat('HH:mm').format(hora) : '-', style: TextStyle(fontSize: 12)),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(_formatarPolifenois(r['total_polifenois_refeicao']), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.green)),
+                                      Text("${r['peso_total_refeicao'] ?? '-'}g", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                    ],
+                                  ),
+                                  onTap: () => _abrirDetalhesRefeicaoAdmin(r),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+                child: Text("FECHAR", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // =========================================================================
+  // DETALHAMENTO COMPLETO DE UMA REFEIÇÃO (o que a IA detectou, peso, polifenóis)
+  // =========================================================================
+  void _abrirDetalhesRefeicaoAdmin(Map<String, dynamic> refeicao) {
+    List<dynamic> itens = [];
+    bool carregandoItens = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          if (carregandoItens && itens.isEmpty) {
+            http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes/${refeicao['id']}/itens")).then((res) {
+              if (res.statusCode == 200) {
+                setModalState(() {
+                  itens = jsonDecode(res.body);
+                  carregandoItens = false;
+                });
+              } else {
+                setModalState(() => carregandoItens = false);
+              }
+            });
+          }
+
+          DateTime? dataHora;
+          try { dataHora = DateTime.parse(refeicao['data_hora_registro'].toString()).toLocal(); } catch (e) {}
+          final temFoto = refeicao['foto_prato_url'] != null && refeicao['foto_prato_url'].toString().length > 500;
+
+          return AlertDialog(
+            title: Text("Detalhes da Refeição", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
+            content: Container(
+              width: 560,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: temFoto
+                          ? Image.memory(base64Decode(refeicao['foto_prato_url']), width: double.infinity, height: 220, fit: BoxFit.cover)
+                          : Container(width: double.infinity, height: 180, color: Colors.grey.shade200, child: Icon(Icons.fastfood, size: 50, color: Colors.grey)),
+                    ),
+                    SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          (refeicao['tipo_refeicao']?.toString() ?? 'Refeição').toUpperCase(),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PolifenoisTema.azulPrimario),
+                        ),
+                        Text(
+                          dataHora != null ? DateFormat('dd/MM/yyyy \'às\' HH:mm').format(dataHora) : '-',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      "Total de Polifenóis: ${_formatarPolifenois(refeicao['total_polifenois_refeicao'])}",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green),
+                    ),
+                    Text("Peso total do prato: ${refeicao['peso_total_refeicao'] ?? '-'}g", style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5)),
+                    Divider(height: 30),
+                    Text("Alimentos identificados pela IA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    SizedBox(height: 8),
+                    if (carregandoItens)
+                      Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                    else if (itens.isEmpty)
+                      Text("Nenhum item registrado nessa refeição.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
+                    else
+                      ...itens.map((it) => Card(
+                        margin: EdgeInsets.only(bottom: 6),
+                        elevation: 1,
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(Icons.restaurant, color: PolifenoisTema.azulPrimario, size: 20),
+                          title: Text(it['nome_alimento'] ?? '-', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text("${it['peso_estimado_gramas']}g", style: TextStyle(fontSize: 12)),
+                              Text(_formatarPolifenois(it['polifenois_consumidos_item']), style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(backgroundColor: PolifenoisTema.azulPrimario),
+                child: Text("FECHAR", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _carregarPacientes() async {
     setState(() => _loading = true);
     try {
@@ -141,8 +343,9 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     TextEditingController senhaCtrl = TextEditingController();
 
     // Variaveis da Galeria de Fotos
-    List<dynamic> refeicoes = [];
-    bool carregandoRefeicoes = isEdicao;
+    // Histórico agrupado por dia (cada dia com seu semáforo de consumo)
+    List<dynamic> diasAgrupados = [];
+    bool carregandoDias = isEdicao;
 
     // Status diário de polifenóis (indicador colorido para a equipe clínica)
     Map<String, dynamic>? statusDiario;
@@ -153,12 +356,12 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
           
-          if (isEdicao && carregandoRefeicoes && refeicoes.isEmpty) {
-            http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes-gestante/${paciente['id']}")).then((res) {
+          if (isEdicao && carregandoDias && diasAgrupados.isEmpty) {
+            http.get(Uri.parse("https://polifenois-backend.onrender.com/refeicoes-por-dia/${paciente['id']}")).then((res) {
               if (res.statusCode == 200) {
                 setModalState(() {
-                  refeicoes = jsonDecode(res.body)['refeicoes'] ?? [];
-                  carregandoRefeicoes = false;
+                  diasAgrupados = jsonDecode(res.body)['dias'] ?? [];
+                  carregandoDias = false;
                 });
               }
             });
@@ -298,48 +501,34 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                       SizedBox(height: 35),
                       Container(
                         padding: EdgeInsets.all(10), color: Colors.green.shade50, width: double.infinity,
-                        child: Text("4. HISTÓRICO FOTOGRÁFICO DE REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                        child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
                       ),
                       SizedBox(height: 15),
-                      if (carregandoRefeicoes)
+                      if (carregandoDias)
                         Center(child: CircularProgressIndicator())
-                      else if (refeicoes.isEmpty)
+                      else if (diasAgrupados.isEmpty)
                         Text("A paciente ainda não registrou nenhuma refeição no aplicativo.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
                       else
-                        GridView.builder(
-                          shrinkWrap: true, 
-                          physics: NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.9,
-                          ),
-                          itemCount: refeicoes.length,
-                          itemBuilder: (context, i) {
-                            final r = refeicoes[i];
+                        Column(
+                          children: diasAgrupados.map((d) {
+                            DateTime? dataDia;
+                            try { dataDia = DateTime.parse(d['data'].toString()); } catch (e) {}
+                            final cor = _corDoStatus(d['classificacao']);
                             return Card(
-                              clipBehavior: Clip.antiAlias,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: r['foto_prato_url'] != null && r['foto_prato_url'].toString().length > 500
-                                      ? Image.memory(base64Decode(r['foto_prato_url']), fit: BoxFit.cover, width: double.infinity)
-                                      : Image.network(r['foto_prato_url'] ?? '', fit: BoxFit.cover, width: double.infinity, errorBuilder: (c, e, s) => Icon(Icons.broken_image, size: 50, color: Colors.grey)),
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsets.all(8.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(r['tipo_refeicao']?.toString().toUpperCase() ?? 'REFEIÇÃO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                                        Text(_formatarPolifenois(r['total_polifenois_refeicao']), style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                                      ],
-                                    ),
-                                  )
-                                ],
+                              margin: EdgeInsets.only(bottom: 8),
+                              elevation: 1,
+                              child: ListTile(
+                                leading: Icon(Icons.circle, size: 16, color: cor),
+                                title: Text(
+                                  dataDia != null ? "${DateFormat('dd/MM/yyyy').format(dataDia)} (${_nomeDiaSemana(dataDia)})" : d['data'].toString(),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                ),
+                                subtitle: Text("${d['quantidade_refeicoes']} refeição(ões) registrada(s)", style: TextStyle(fontSize: 12)),
+                                trailing: Text(_formatarPolifenois(d['total_polifenois']), style: TextStyle(fontWeight: FontWeight.bold, color: cor)),
+                                onTap: () => _abrirDetalhesDoDia(paciente['id'], d['data'].toString(), cor),
                               ),
                             );
-                          },
+                          }).toList(),
                         )
                     ]
                   ],

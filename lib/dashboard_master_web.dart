@@ -132,6 +132,8 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       default: return '';
     }
   }
+
+  String _formatarPolifenois(dynamic valorMg) {
     double valor = 0;
     if (valorMg is num) {
       valor = valorMg.toDouble();

@@ -747,13 +747,12 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             content: Theme(
               data: Theme.of(context).copyWith(visualDensity: VisualDensity.compact),
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.94 > 1400 ? 1400 : MediaQuery.of(context).size.width * 0.94,
-                height: MediaQuery.of(context).size.height * 0.94,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // BLOCO FIXO (não rola): dados da paciente
-                    Column(
+                width: MediaQuery.of(context).size.width * 0.9 > 1000 ? 1000 : MediaQuery.of(context).size.width * 0.9,
+                height: MediaQuery.of(context).size.height * 0.85,
+                // Modal inteiro rola (antes só a seção 4 rolava e o resto ficava
+                // "fixo" — em telas menores isso escondia o histórico lá embaixo).
+                child: SingleChildScrollView(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // INDICADOR DE LIMITE DIÁRIO DE POLIFENÓIS (visível para a equipe clínica)
@@ -791,177 +790,145 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                         padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
                         child: Text("1. DADOS PESSOAIS", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
                       ),
-                      SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: Column(
+                      SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                SizedBox(width: 260, child: TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person))),
+                                SizedBox(width: 150, child: TextField(controller: cpfCtrl, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge))),
+                                SizedBox(width: 130, child: TextField(controller: rgCtrl, decoration: PolifenoisTema.inputDecoracao("RG", Icons.fingerprint))),
+                                SizedBox(width: 170, child: TextField(controller: nascCtrl, decoration: PolifenoisTema.inputDecoracao("Nascimento (AAAA-MM-DD)", Icons.calendar_today))),
+                                SizedBox(width: 90, child: TextField(controller: idadeCtrl, decoration: PolifenoisTema.inputDecoracao("Idade", Icons.cake))),
+                                SizedBox(width: 230, child: TextField(controller: emailCtrl, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email))),
+                                SizedBox(width: 150, child: TextField(controller: celCtrl, decoration: PolifenoisTema.inputDecoracao("Celular", Icons.phone_android))),
+                                SizedBox(width: 150, child: TextField(controller: fixoCtrl, decoration: PolifenoisTema.inputDecoracao("Fixo", Icons.phone))),
+                                SizedBox(width: 230, child: TextField(controller: maeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome da Mãe", Icons.woman))),
+                                SizedBox(width: 150, child: TextField(controller: nacioCtrl, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
+                                SizedBox(width: 180, child: TextField(controller: naturCtrl, decoration: PolifenoisTema.inputDecoracao("Naturalidade", Icons.location_city))),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: 20),
+                          Column(
                             children: [
-                              Row(children: [
-                                Expanded(flex: 2, child: TextField(controller: nomeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome Completo", Icons.person))),
-                                SizedBox(width: 10),
-                                Expanded(child: TextField(controller: cpfCtrl, decoration: PolifenoisTema.inputDecoracao("CPF", Icons.badge))),
-                                SizedBox(width: 10),
-                                Expanded(child: TextField(controller: rgCtrl, decoration: PolifenoisTema.inputDecoracao("RG", Icons.fingerprint))),
-                              ]),
-                              SizedBox(height: 6),
-                              Row(children: [
-                                Expanded(child: TextField(controller: nascCtrl, decoration: PolifenoisTema.inputDecoracao("Nascimento (AAAA-MM-DD)", Icons.calendar_today))),
-                                SizedBox(width: 10),
-                                Expanded(child: TextField(controller: idadeCtrl, decoration: PolifenoisTema.inputDecoracao("Idade", Icons.cake))),
-                                SizedBox(width: 10),
-                                Expanded(flex: 2, child: TextField(controller: emailCtrl, decoration: PolifenoisTema.inputDecoracao("E-mail", Icons.email))),
-                              ]),
-                              SizedBox(height: 6),
-                              Row(children: [
-                                Expanded(child: TextField(controller: celCtrl, decoration: PolifenoisTema.inputDecoracao("Celular", Icons.phone_android))),
-                                SizedBox(width: 10),
-                                Expanded(child: TextField(controller: fixoCtrl, decoration: PolifenoisTema.inputDecoracao("Fixo", Icons.phone))),
-                                SizedBox(width: 10),
-                                Expanded(flex: 2, child: TextField(controller: maeCtrl, decoration: PolifenoisTema.inputDecoracao("Nome da Mãe", Icons.woman))),
-                              ]),
-                              SizedBox(height: 6),
-                              Row(children: [
-                                Expanded(child: TextField(controller: nacioCtrl, decoration: PolifenoisTema.inputDecoracao("Nacionalidade", Icons.flag))),
-                                SizedBox(width: 10),
-                                Expanded(child: TextField(controller: naturCtrl, decoration: PolifenoisTema.inputDecoracao("Naturalidade", Icons.location_city))),
-                              ]),
+                              GestureDetector(
+                                onTap: isEdicao ? () => selecionarFotoPaciente(setModalState) : null,
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: 92, height: 92,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.grey.shade200,
+                                        image: fotoPacienteBytes != null
+                                          ? DecorationImage(image: MemoryImage(fotoPacienteBytes!), fit: BoxFit.cover)
+                                          : (isEdicao && paciente!['foto_perfil_url'] != null && paciente['foto_perfil_url'].toString().length > 100
+                                              ? DecorationImage(image: MemoryImage(base64Decode(paciente['foto_perfil_url'])), fit: BoxFit.cover)
+                                              : null),
+                                      ),
+                                      child: (fotoPacienteBytes == null && (!isEdicao || paciente!['foto_perfil_url'] == null || paciente['foto_perfil_url'].toString().length < 100))
+                                        ? Icon(Icons.person, size: 46, color: Colors.grey.shade400)
+                                        : null,
+                                    ),
+                                    if (isEdicao)
+                                      Positioned(
+                                        bottom: 0, right: 0,
+                                        child: CircleAvatar(radius: 14, backgroundColor: PolifenoisTema.azulPrimario,
+                                          child: Icon(Icons.camera_alt, size: 14, color: Colors.white)),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 5),
+                              Text(isEdicao ? "Toque para alterar" : "Salve para\nadicionar foto",
+                                style: TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
                             ],
                           ),
+                        ],
+                      ),
+
+                      SizedBox(height: 16),
+                      Container(
+                        padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
+                        child: Text("2. ENDEREÇO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
+                      ),
+                      SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          SizedBox(width: 120, child: TextField(controller: cepCtrl, decoration: PolifenoisTema.inputDecoracao("CEP", Icons.map))),
+                          SizedBox(width: 280, child: TextField(controller: logradouroCtrl, decoration: PolifenoisTema.inputDecoracao("Logradouro", Icons.home))),
+                          SizedBox(width: 90, child: TextField(controller: numCtrl, decoration: PolifenoisTema.inputDecoracao("Número", Icons.numbers))),
+                          SizedBox(width: 200, child: TextField(controller: compCtrl, decoration: PolifenoisTema.inputDecoracao("Complemento", Icons.info))),
+                          SizedBox(width: 180, child: TextField(controller: cidadeCtrl, decoration: PolifenoisTema.inputDecoracao("Cidade", Icons.location_city))),
+                          SizedBox(width: 90, child: TextField(controller: estadoCtrl, decoration: PolifenoisTema.inputDecoracao("Estado (UF)", Icons.location_on))),
+                        ],
+                      ),
+
+                      SizedBox(height: 16),
+
+                      // SESSÃO 3: DADOS CLÍNICOS
+                      Container(
+                        padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
+                        child: Text("3. DADOS CLÍNICOS E ACESSO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
+                      ),
+                      SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          SizedBox(width: 170, child: TextField(controller: semanaCtrl, decoration: PolifenoisTema.inputDecoracao("Semanas de Gestação", Icons.calendar_month))),
+                          if (!isEdicao)
+                            SizedBox(width: 200, child: TextField(controller: senhaCtrl, decoration: PolifenoisTema.inputDecoracao("Senha Provisória", Icons.lock), obscureText: true)),
+                          SizedBox(width: 240, child: TextField(controller: medCtrl, decoration: PolifenoisTema.inputDecoracao("Médico Obstetra", Icons.medical_services))),
+                          SizedBox(width: 130, child: TextField(controller: crmCtrl, decoration: PolifenoisTema.inputDecoracao("CRM", Icons.badge))),
+                          SizedBox(width: 240, child: TextField(controller: nutriCtrl, decoration: PolifenoisTema.inputDecoracao("Nutricionista", Icons.local_dining))),
+                          SizedBox(width: 130, child: TextField(controller: crnCtrl, decoration: PolifenoisTema.inputDecoracao("CRN", Icons.badge))),
+                        ],
+                      ),
+
+                      // SESSÃO 4: HISTÓRICO POR DIA — agora flui dentro do mesmo scroll
+                      // do restante do prontuário (não precisa mais de altura própria).
+                      if (isEdicao) ...[
+                        SizedBox(height: 20),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5), color: Colors.green.shade50, width: double.infinity,
+                          child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13)),
                         ),
-                        SizedBox(width: 20),
-                        Column(
-                          children: [
-                            GestureDetector(
-                              onTap: isEdicao ? () => selecionarFotoPaciente(setModalState) : null,
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    width: 92, height: 92,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.grey.shade200,
-                                      image: fotoPacienteBytes != null
-                                        ? DecorationImage(image: MemoryImage(fotoPacienteBytes!), fit: BoxFit.cover)
-                                        : (isEdicao && paciente!['foto_perfil_url'] != null && paciente['foto_perfil_url'].toString().length > 100
-                                            ? DecorationImage(image: MemoryImage(base64Decode(paciente['foto_perfil_url'])), fit: BoxFit.cover)
-                                            : null),
-                                    ),
-                                    child: (fotoPacienteBytes == null && (!isEdicao || paciente!['foto_perfil_url'] == null || paciente['foto_perfil_url'].toString().length < 100))
-                                      ? Icon(Icons.person, size: 46, color: Colors.grey.shade400)
-                                      : null,
-                                  ),
-                                  if (isEdicao)
-                                    Positioned(
-                                      bottom: 0, right: 0,
-                                      child: CircleAvatar(radius: 14, backgroundColor: PolifenoisTema.azulPrimario,
-                                        child: Icon(Icons.camera_alt, size: 14, color: Colors.white)),
-                                    ),
-                                ],
-                              ),
+                        SizedBox(height: 6),
+                        if (!carregandoDias && diasAgrupados.isNotEmpty)
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            color: Colors.green.shade50,
+                            child: Row(
+                              children: [
+                                SizedBox(width: 30, child: Text("")),
+                                Expanded(flex: 3, child: Text("DIA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                                Expanded(flex: 2, child: Text("REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                                Expanded(flex: 3, child: Text("TOTAL POLIFENÓIS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                                SizedBox(width: 90, child: Text("")),
+                              ],
                             ),
-                            SizedBox(height: 5),
-                            Text(isEdicao ? "Toque para alterar" : "Salve para\nadicionar foto",
-                              style: TextStyle(fontSize: 10, color: Colors.grey), textAlign: TextAlign.center),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    SizedBox(height: 16),
-                    Container(
-                      padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
-                      child: Text("2. ENDEREÇO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
-                    ),
-                    SizedBox(height: 6),
-                    Row(children: [
-                      Expanded(child: TextField(controller: cepCtrl, decoration: PolifenoisTema.inputDecoracao("CEP", Icons.map))),
-                      SizedBox(width: 10),
-                      Expanded(flex: 2, child: TextField(controller: logradouroCtrl, decoration: PolifenoisTema.inputDecoracao("Logradouro", Icons.home))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: numCtrl, decoration: PolifenoisTema.inputDecoracao("Número", Icons.numbers))),
-                    ]),
-                    SizedBox(height: 6),
-                    Row(children: [
-                      Expanded(flex: 2, child: TextField(controller: compCtrl, decoration: PolifenoisTema.inputDecoracao("Complemento", Icons.info))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: cidadeCtrl, decoration: PolifenoisTema.inputDecoracao("Cidade", Icons.location_city))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: estadoCtrl, decoration: PolifenoisTema.inputDecoracao("Estado (UF)", Icons.location_on))),
-                    ]),
-
-                    SizedBox(height: 10),
-
-                    // SESSÃO 3: DADOS CLÍNICOS
-                    Container(
-                      padding: EdgeInsets.all(8), color: Colors.blue.shade50, width: double.infinity,
-                      child: Text("3. DADOS CLÍNICOS E ACESSO", style: TextStyle(fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario, fontSize: 13)),
-                    ),
-                    SizedBox(height: 6),
-                    Row(children: [
-                      Expanded(child: TextField(controller: semanaCtrl, decoration: PolifenoisTema.inputDecoracao("Semanas de Gestação", Icons.calendar_month))),
-                      if (!isEdicao) ...[
-                        SizedBox(width: 10),
-                        Expanded(child: TextField(controller: senhaCtrl, decoration: PolifenoisTema.inputDecoracao("Senha Provisória", Icons.lock), obscureText: true)),
-                      ]
-                    ]),
-                    SizedBox(height: 6),
-                    Row(children: [
-                      Expanded(flex: 2, child: TextField(controller: medCtrl, decoration: PolifenoisTema.inputDecoracao("Médico Obstetra", Icons.medical_services))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: crmCtrl, decoration: PolifenoisTema.inputDecoracao("CRM", Icons.badge))),
-                    ]),
-                    SizedBox(height: 6),
-                    Row(children: [
-                      Expanded(flex: 2, child: TextField(controller: nutriCtrl, decoration: PolifenoisTema.inputDecoracao("Nutricionista", Icons.local_dining))),
-                      SizedBox(width: 10),
-                      Expanded(child: TextField(controller: crnCtrl, decoration: PolifenoisTema.inputDecoracao("CRN", Icons.badge))),
-                    ]),
-                    ],
-                    ),
-
-                    // SESSÃO 4: HISTÓRICO POR DIA — fora do bloco fixo, ocupa o espaço
-                    // restante e rola sozinha. Cada dia mostra o semáforo de consumo;
-                    // ao clicar, abre as refeições daquele dia específico.
-                    if (isEdicao) ...[
-                      SizedBox(height: 8),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5), color: Colors.green.shade50, width: double.infinity,
-                        child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13)),
-                      ),
-                      SizedBox(height: 6),
-                      // CABEÇALHO FIXO DA TABELA
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        color: Colors.green.shade50,
-                        child: Row(
-                          children: [
-                            SizedBox(width: 30, child: Text("")),
-                            Expanded(flex: 3, child: Text("DIA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            Expanded(flex: 2, child: Text("REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            Expanded(flex: 3, child: Text("TOTAL POLIFENÓIS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                            SizedBox(width: 90, child: Text("")),
-                          ],
-                        ),
-                      ),
-                      Divider(height: 1, color: Colors.green.shade200),
-                      // CORPO ROLÁVEL (só essa parte rola, o resto do prontuário fica parado)
-                      Expanded(
-                        child: carregandoDias
-                            ? Center(child: CircularProgressIndicator())
+                          ),
+                        Divider(height: 1, color: Colors.green.shade200),
+                        carregandoDias
+                            ? Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
                             : diasAgrupados.isEmpty
-                                ? Center(
+                                ? Padding(
+                                    padding: EdgeInsets.all(16),
                                     child: Text(
                                       "Sem histórico de refeição",
                                       style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 13),
                                     ),
                                   )
-                                : ListView.builder(
-                                    itemCount: diasAgrupados.length,
-                                    itemBuilder: (context, i) {
-                                      final d = diasAgrupados[i];
+                                : Column(
+                                    children: diasAgrupados.map((d) {
                                       DateTime? dataDia;
                                       try { dataDia = DateTime.parse(d['data'].toString()); } catch (e) {}
                                       final cor = _corDoStatus(d['classificacao']);
@@ -988,11 +955,11 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                           ),
                                         ),
                                       );
-                                    },
+                                    }).toList(),
                                   ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),

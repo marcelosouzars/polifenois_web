@@ -379,7 +379,7 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
           return AlertDialog(
             title: Text(isEdicao ? "Prontuário Completo da Paciente" : "Novo Cadastro de Paciente", style: TextStyle(color: PolifenoisTema.azulPrimario, fontWeight: FontWeight.bold)),
             content: Container(
-              width: 900, 
+              width: MediaQuery.of(context).size.width * 0.94 > 1150 ? 1150 : MediaQuery.of(context).size.width * 0.94, 
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,13 +481,13 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                       SizedBox(height: 35),
                       Container(
                         padding: EdgeInsets.all(10), color: Colors.green.shade50, width: double.infinity,
-                        child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+                        child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 14.5)),
                       ),
                       SizedBox(height: 15),
                       if (carregandoDias)
                         Center(child: CircularProgressIndicator())
                       else if (diasAgrupados.isEmpty)
-                        Text("A paciente ainda não registrou nenhuma refeição no aplicativo.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
+                        Text("A paciente ainda não registrou nenhuma refeição no aplicativo.", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 14))
                       else
                         Column(
                           children: diasAgrupados.map((d) {
@@ -501,10 +501,10 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                                 leading: Icon(Icons.circle, size: 16, color: cor),
                                 title: Text(
                                   dataDia != null ? "${DateFormat('dd/MM/yyyy').format(dataDia)} (${_nomeDiaSemana(dataDia)})" : d['data'].toString(),
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                 ),
-                                subtitle: Text("${d['quantidade_refeicoes']} refeição(ões) registrada(s)", style: TextStyle(fontSize: 12)),
-                                trailing: Text(_formatarPolifenois(d['total_polifenois']), style: TextStyle(fontWeight: FontWeight.bold, color: cor)),
+                                subtitle: Text("${d['quantidade_refeicoes']} refeição(ões) registrada(s)", style: TextStyle(fontSize: 13.5)),
+                                trailing: Text(_formatarPolifenois(d['total_polifenois']), style: TextStyle(fontWeight: FontWeight.bold, color: cor, fontSize: 14)),
                                 onTap: () => _abrirDetalhesDoDia(paciente['id'], d['data'].toString(), cor),
                               ),
                             );
@@ -1000,11 +1000,16 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                                             DataCell(
                                               Row(
                                                 children: [
-                                                  IconButton(
-                                                    icon: Icon(Icons.edit, color: PolifenoisTema.azulPrimario),
-                                                    tooltip: "Prontuário Completo",
+                                                  OutlinedButton(
                                                     onPressed: () => _abrirModalPaciente(paciente: p),
+                                                    style: OutlinedButton.styleFrom(
+                                                      foregroundColor: PolifenoisTema.azulPrimario,
+                                                      side: BorderSide(color: PolifenoisTema.azulPrimario),
+                                                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                                    ),
+                                                    child: Text("DETALHES", style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                                   ),
+                                                  SizedBox(width: 6),
                                                   IconButton(
                                                     icon: Icon(Icons.delete_forever, color: Colors.red),
                                                     tooltip: "Excluir Paciente",

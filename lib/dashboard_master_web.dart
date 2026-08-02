@@ -747,8 +747,8 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             content: Theme(
               data: Theme.of(context).copyWith(visualDensity: VisualDensity.compact),
               child: Container(
-                width: MediaQuery.of(context).size.width * 0.9 > 1000 ? 1000 : MediaQuery.of(context).size.width * 0.9,
-                height: MediaQuery.of(context).size.height * 0.85,
+                width: MediaQuery.of(context).size.width * 0.94 > 1150 ? 1150 : MediaQuery.of(context).size.width * 0.94,
+                height: MediaQuery.of(context).size.height * 0.88,
                 // Modal inteiro rola (antes só a seção 4 rolava e o resto ficava
                 // "fixo" — em telas menores isso escondia o histórico lá embaixo).
                 child: SingleChildScrollView(
@@ -898,20 +898,20 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                       if (isEdicao) ...[
                         SizedBox(height: 20),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5), color: Colors.green.shade50, width: double.infinity,
-                          child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13)),
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6), color: Colors.green.shade50, width: double.infinity,
+                          child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 14.5)),
                         ),
                         SizedBox(height: 6),
                         if (!carregandoDias && diasAgrupados.isNotEmpty)
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                             color: Colors.green.shade50,
                             child: Row(
                               children: [
                                 SizedBox(width: 30, child: Text("")),
-                                Expanded(flex: 3, child: Text("DIA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                                Expanded(flex: 2, child: Text("REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
-                                Expanded(flex: 3, child: Text("TOTAL POLIFENÓIS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green.shade800))),
+                                Expanded(flex: 3, child: Text("DIA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade800))),
+                                Expanded(flex: 2, child: Text("REFEIÇÕES", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade800))),
+                                Expanded(flex: 3, child: Text("TOTAL POLIFENÓIS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade800))),
                                 SizedBox(width: 90, child: Text("")),
                               ],
                             ),
@@ -924,7 +924,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                     padding: EdgeInsets.all(16),
                                     child: Text(
                                       "Sem histórico de refeição",
-                                      style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 13),
+                                      style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 14),
                                     ),
                                   )
                                 : Column(
@@ -935,20 +935,20 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                       return InkWell(
                                         onTap: () => _abrirDetalhesDoDia(paciente['id'], d['data'].toString(), cor),
                                         child: Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                                           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey.shade200))),
                                           child: Row(
                                             children: [
-                                              SizedBox(width: 30, child: Icon(Icons.circle, size: 13, color: cor)),
-                                              Expanded(flex: 3, child: Text(dataDia != null ? "${DateFormat('dd/MM/yyyy').format(dataDia)} (${_nomeDiaSemana(dataDia)})" : d['data'].toString(), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
-                                              Expanded(flex: 2, child: Text("${d['quantidade_refeicoes']}", style: TextStyle(fontSize: 12))),
-                                              Expanded(flex: 3, child: Text(_formatarPolifenois(d['total_polifenois']), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cor))),
+                                              SizedBox(width: 30, child: Icon(Icons.circle, size: 14, color: cor)),
+                                              Expanded(flex: 3, child: Text(dataDia != null ? "${DateFormat('dd/MM/yyyy').format(dataDia)} (${_nomeDiaSemana(dataDia)})" : d['data'].toString(), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                                              Expanded(flex: 2, child: Text("${d['quantidade_refeicoes']}", style: TextStyle(fontSize: 13.5))),
+                                              Expanded(flex: 3, child: Text(_formatarPolifenois(d['total_polifenois']), style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: cor))),
                                               SizedBox(
                                                 width: 90,
                                                 child: TextButton(
                                                   style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size(0, 0)),
                                                   onPressed: () => _abrirDetalhesDoDia(paciente['id'], d['data'].toString(), cor),
-                                                  child: Text("VER DIA", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
+                                                  child: Text("VER DIA", style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: PolifenoisTema.azulPrimario)),
                                                 ),
                                               ),
                                             ],
@@ -1235,7 +1235,10 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(context);
-              setState(() => _pacientes.removeWhere((p) => p['id'] == id));
+              setState(() {
+                _pacientes.removeWhere((p) => p['id'] == id);
+                _pacientesFiltradas.removeWhere((p) => p['id'] == id);
+              });
               await http.delete(Uri.parse("https://polifenois-backend.onrender.com/pacientes/$id"));
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Paciente excluída."), backgroundColor: Colors.redAccent));
             },
@@ -1876,11 +1879,16 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
                                     DataCell(
                                       Row(
                                         children: [
-                                          IconButton(
-                                            icon: Icon(Icons.edit, color: PolifenoisTema.azulPrimario),
-                                            tooltip: "Prontuário Completo",
+                                          OutlinedButton(
                                             onPressed: () => _abrirModalPaciente(paciente: p),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: PolifenoisTema.azulPrimario,
+                                              side: BorderSide(color: PolifenoisTema.azulPrimario),
+                                              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                            ),
+                                            child: Text("DETALHES", style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                           ),
+                                          SizedBox(width: 6),
                                           IconButton(
                                             icon: Icon(Icons.delete_forever, color: Colors.red),
                                             tooltip: "Excluir Paciente",

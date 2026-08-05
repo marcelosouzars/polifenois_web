@@ -67,6 +67,11 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     final dias = diasAgrupadosDesc.reversed.toList();
     final serie = dias.length > 30 ? dias.sublist(dias.length - 30) : dias;
 
+    final valores = serie.map((d) => (double.tryParse(d['total_polifenois'].toString()) ?? 0)).toList();
+    final maiorValor = valores.isEmpty ? 0.0 : valores.reduce((a, b) => a > b ? a : b);
+    double escalaMax = (maiorValor > LIMITE_ADEQUADO_MG_UI ? maiorValor * 1.15 : LIMITE_ADEQUADO_MG_UI * 1.25);
+    if (escalaMax <= 0) escalaMax = LIMITE_ADEQUADO_MG_UI * 1.25;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(16, 16, 16, 10),
@@ -88,24 +93,48 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
             ],
           ),
           SizedBox(height: 10),
-          SizedBox(
-            height: 200,
-            width: double.infinity,
-            child: CustomPaint(
-              size: Size.infinite,
-              painter: _LinhaConsumoPainterAdmin(dias: serie, limite: LIMITE_ADEQUADO_MG_UI),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Rótulos do eixo Y como Text normal (evita usar TextPainter/dart:ui dentro do painter)
+              SizedBox(
+                width: 42,
+                height: 200,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(escalaMax.toStringAsFixed(0), style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500)),
+                    Text((escalaMax / 2).toStringAsFixed(0), style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500)),
+                    Text("0", style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500)),
+                  ],
+                ),
+              ),
+              SizedBox(width: 6),
+              Expanded(
+                child: SizedBox(
+                  height: 200,
+                  child: CustomPaint(
+                    size: Size.infinite,
+                    painter: _LinhaConsumoPainterAdmin(dias: serie, limite: LIMITE_ADEQUADO_MG_UI, escalaMax: escalaMax),
+                  ),
+                ),
+              ),
+            ],
           ),
           SizedBox(height: 6),
           if (serie.isNotEmpty)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(_rotuloDataCurta(serie.first['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
-                if (serie.length > 2)
-                  Text(_rotuloDataCurta(serie[serie.length ~/ 2]['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
-                Text(_rotuloDataCurta(serie.last['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
-              ],
+            Padding(
+              padding: EdgeInsets.only(left: 48),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(_rotuloDataCurta(serie.first['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+                  if (serie.length > 2)
+                    Text(_rotuloDataCurta(serie[serie.length ~/ 2]['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+                  Text(_rotuloDataCurta(serie.last['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+                ],
+              ),
             ),
         ],
       ),
@@ -1124,8 +1153,9 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
 class _LinhaConsumoPainterAdmin extends CustomPainter {
   final List<dynamic> dias; // cada item: {data, total_polifenois, classificacao}
   final double limite;
+  final double escalaMax;
 
-  _LinhaConsumoPainterAdmin({required this.dias, required this.limite});
+  _LinhaConsumoPainterAdmin({required this.dias, required this.limite, required this.escalaMax});
 
   Color _corClassificacao(String? c) {
     switch (c) {
@@ -1140,41 +1170,30 @@ class _LinhaConsumoPainterAdmin extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (dias.isEmpty) return;
 
-    const paddingEsquerda = 42.0; // espaço pros rótulos do eixo Y
     const paddingTopo = 10.0;
     const paddingBaixo = 6.0;
-    final larguraUtil = size.width - paddingEsquerda;
+    final larguraUtil = size.width;
     final alturaUtil = size.height - paddingTopo - paddingBaixo;
 
     final valores = dias.map((d) => (double.tryParse(d['total_polifenois'].toString()) ?? 0)).toList();
-    double maiorValor = valores.fold<double>(0, (a, b) => b > a ? b : a);
-    // Garante que a linha de referência sempre apareça dentro da área visível,
-    // mesmo que nenhum dia tenha ultrapassado o limite ainda.
-    double escalaMax = (maiorValor > limite ? maiorValor * 1.15 : limite * 1.25);
-    if (escalaMax <= 0) escalaMax = limite * 1.25;
 
     double yPara(double valor) => paddingTopo + alturaUtil - (valor / escalaMax) * alturaUtil;
     double xPara(int index) => dias.length == 1
-        ? paddingEsquerda + larguraUtil / 2
-        : paddingEsquerda + (index / (dias.length - 1)) * larguraUtil;
+        ? larguraUtil / 2
+        : (index / (dias.length - 1)) * larguraUtil;
 
-    // Linhas de grade horizontais leves (0%, 50%, 100% da escala)
+    // Linhas de grade horizontais leves (0%, 50%, 100% da escala) — os números
+    // do eixo Y ficam como widgets Text normais, fora do painter.
     final gridPaint = Paint()..color = Colors.grey.shade200..strokeWidth = 1;
     for (var frac in [0.0, 0.5, 1.0]) {
       final y = paddingTopo + alturaUtil - (frac * alturaUtil);
-      canvas.drawLine(Offset(paddingEsquerda, y), Offset(size.width, y), gridPaint);
-      final rotulo = (escalaMax * frac).toStringAsFixed(0);
-      final tp = TextPainter(
-        text: TextSpan(text: rotulo, style: TextStyle(color: Colors.grey.shade500, fontSize: 9)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(paddingEsquerda - tp.width - 6, y - tp.height / 2));
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
     // Linha de referência (limite), tracejada em vermelho claro
     final yLimite = yPara(limite);
     final dashPaint = Paint()..color = Colors.red.shade300..strokeWidth = 1.6;
-    double dashX = paddingEsquerda;
+    double dashX = 0;
     while (dashX < size.width) {
       canvas.drawLine(Offset(dashX, yLimite), Offset(dashX + 6, yLimite), dashPaint);
       dashX += 10;
@@ -1210,6 +1229,6 @@ class _LinhaConsumoPainterAdmin extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LinhaConsumoPainterAdmin oldDelegate) {
-    return oldDelegate.dias != dias || oldDelegate.limite != limite;
+    return oldDelegate.dias != dias || oldDelegate.limite != limite || oldDelegate.escalaMax != escalaMax;
   }
 }

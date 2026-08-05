@@ -1522,6 +1522,10 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             ],
           ),
           SizedBox(height: 40),
+          Text("Distribuição Geográfica", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[800])),
+          SizedBox(height: 20),
+          _cardDistribuicaoGeografica(),
+          SizedBox(height: 40),
           Text("Evolução de Cadastros (Últimos 3 Meses)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[800])),
           SizedBox(height: 20),
           Center(child: _graficoEvolucaoMensal()),
@@ -1570,6 +1574,105 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // Mapeamento de UF para Região (usado no gráfico de distribuição por região)
+  static const Map<String, String> _regiaoPorUF = {
+    'AC': 'Norte', 'AP': 'Norte', 'AM': 'Norte', 'PA': 'Norte', 'RO': 'Norte', 'RR': 'Norte', 'TO': 'Norte',
+    'AL': 'Nordeste', 'BA': 'Nordeste', 'CE': 'Nordeste', 'MA': 'Nordeste', 'PB': 'Nordeste', 'PE': 'Nordeste',
+    'PI': 'Nordeste', 'RN': 'Nordeste', 'SE': 'Nordeste',
+    'DF': 'Centro-Oeste', 'GO': 'Centro-Oeste', 'MT': 'Centro-Oeste', 'MS': 'Centro-Oeste',
+    'ES': 'Sudeste', 'MG': 'Sudeste', 'RJ': 'Sudeste', 'SP': 'Sudeste',
+    'PR': 'Sul', 'RS': 'Sul', 'SC': 'Sul',
+  };
+
+  static const List<Color> _paletaPizza = [
+    Color(0xFF1A237E), Color(0xFF00897B), Color(0xFFE65100), Color(0xFF6A1B9A),
+    Color(0xFFAD1457), Color(0xFF283593), Color(0xFF00695C), Color(0xFFBF360C),
+    Color(0xFF4527A0), Color(0xFF880E4F), Color(0xFF37474F), Color(0xFF558B2F),
+  ];
+
+  Widget _cardDistribuicaoGeografica() {
+    final List<dynamic> estadosRaw = _stats?['estados'] ?? [];
+
+    // Estado -> total (ignora "NI"/vazio, que representa gestantes sem estado preenchido)
+    List<MapEntry<String, int>> porEstado = estadosRaw
+        .where((e) => (e['estado'] ?? 'NI').toString() != 'NI')
+        .map((e) => MapEntry(e['estado'].toString(), int.tryParse(e['total'].toString()) ?? 0))
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Agrupa por região a partir do mesmo dado de estado
+    Map<String, int> porRegiaoMap = {};
+    for (var e in estadosRaw) {
+      final uf = (e['estado'] ?? 'NI').toString();
+      final regiao = _regiaoPorUF[uf] ?? 'Não informado';
+      final total = int.tryParse(e['total'].toString()) ?? 0;
+      porRegiaoMap[regiao] = (porRegiaoMap[regiao] ?? 0) + total;
+    }
+    List<MapEntry<String, int>> porRegiao = porRegiaoMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceEvenly,
+        spacing: 30,
+        runSpacing: 30,
+        children: [
+          _blocoPizza("Gestantes por Estado", porEstado),
+          _blocoPizza("Gestantes por Região", porRegiao),
+        ],
+      ),
+    );
+  }
+
+  Widget _blocoPizza(String titulo, List<MapEntry<String, int>> dados) {
+    final total = dados.fold<int>(0, (soma, e) => soma + e.value);
+    return SizedBox(
+      width: 320,
+      child: Column(
+        children: [
+          Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A237E))),
+          SizedBox(height: 16),
+          if (total == 0)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Text("Sem dados suficientes ainda", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+            )
+          else ...[
+            SizedBox(
+              width: 170, height: 170,
+              child: CustomPaint(painter: _PizzaPainter(dados: dados, cores: _paletaPizza)),
+            ),
+            SizedBox(height: 14),
+            // Legenda: cor + rótulo + percentual, limitado às maiores fatias pra não poluir
+            ...dados.take(8).toList().asMap().entries.map((entry) {
+              final i = entry.key;
+              final e = entry.value;
+              final pct = total > 0 ? (e.value / total * 100) : 0;
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Container(width: 10, height: 10, decoration: BoxDecoration(color: _paletaPizza[i % _paletaPizza.length], shape: BoxShape.circle)),
+                    SizedBox(width: 8),
+                    Expanded(child: Text(e.key, style: TextStyle(fontSize: 12))),
+                    Text("${e.value} (${pct.toStringAsFixed(0)}%)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
         ],
       ),
     );
@@ -2003,5 +2106,47 @@ class _RelogioTopoState extends State<_RelogioTopo> {
       DateFormat('dd/MM/yyyy HH:mm:ss').format(_agora),
       style: TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600),
     );
+  }
+}
+
+// =========================================================================
+// PINTOR DE GRÁFICO DE PIZZA — genérico, reaproveitado em qualquer card que
+// precise de uma pizza (Estado, Região, e futuramente o semáforo por Estado).
+// Não depende de nenhuma lib externa de gráficos.
+// =========================================================================
+class _PizzaPainter extends CustomPainter {
+  final List<MapEntry<String, int>> dados;
+  final List<Color> cores;
+
+  _PizzaPainter({required this.dados, required this.cores});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = dados.fold<int>(0, (soma, e) => soma + e.value);
+    if (total == 0) return;
+
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    double anguloInicial = -90 * (3.1415926535 / 180); // começa no topo (12h)
+
+    for (int i = 0; i < dados.length; i++) {
+      final valor = dados[i].value;
+      if (valor == 0) continue;
+      final fatia = (valor / total) * 2 * 3.1415926535;
+      final paint = Paint()
+        ..color = cores[i % cores.length]
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(rect, anguloInicial, fatia, true, paint);
+      anguloInicial += fatia;
+    }
+
+    // Círculo branco no meio para dar efeito "donut" (mais fácil de ler que pizza cheia)
+    final centro = Offset(size.width / 2, size.height / 2);
+    final raioMiolo = size.width * 0.32;
+    canvas.drawCircle(centro, raioMiolo, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PizzaPainter oldDelegate) {
+    return oldDelegate.dados != dados;
   }
 }

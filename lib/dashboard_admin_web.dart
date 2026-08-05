@@ -56,6 +56,71 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
     return "${valor.toStringAsFixed(1)} mg";
   }
 
+  // Mantido como constante local de UI (espelha LIMITE_ADEQUADO_MG do backend).
+  // Se o valor de referência mudar no backend, atualizar aqui também.
+  static const double LIMITE_ADEQUADO_MG_UI = 1000;
+
+  Widget _graficoLinhaConsumo(List<dynamic> diasAgrupadosDesc) {
+    // O backend devolve do mais recente pro mais antigo; pro gráfico de linha
+    // (esquerda = mais antigo, direita = hoje) precisamos inverter a ordem.
+    // Limitamos aos últimos 30 dias com registro pra não poluir o desenho.
+    final dias = diasAgrupadosDesc.reversed.toList();
+    final serie = dias.length > 30 ? dias.sublist(dias.length - 30) : dias;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text("Evolução do Consumo Diário", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.blueGrey.shade800)),
+              Spacer(),
+              Container(width: 16, height: 2, color: Colors.red.shade300),
+              SizedBox(width: 4),
+              Text("Limite de referência (${_formatarPolifenois(LIMITE_ADEQUADO_MG_UI)})", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            ],
+          ),
+          SizedBox(height: 10),
+          SizedBox(
+            height: 200,
+            width: double.infinity,
+            child: CustomPaint(
+              size: Size.infinite,
+              painter: _LinhaConsumoPainterAdmin(dias: serie, limite: LIMITE_ADEQUADO_MG_UI),
+            ),
+          ),
+          SizedBox(height: 6),
+          if (serie.isNotEmpty)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(_rotuloDataCurta(serie.first['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+                if (serie.length > 2)
+                  Text(_rotuloDataCurta(serie[serie.length ~/ 2]['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+                Text(_rotuloDataCurta(serie.last['data'].toString()), style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _rotuloDataCurta(String dataIso) {
+    try {
+      final d = DateTime.parse(dataIso);
+      return DateFormat('dd/MM').format(d);
+    } catch (e) {
+      return dataIso;
+    }
+  }
+
   // Busca o status diário de polifenóis de uma gestante específica (usado no prontuário).
   Future<Map<String, dynamic>?> _buscarStatusDiario(int usuarioId) async {
     try {
@@ -483,7 +548,12 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
                         padding: EdgeInsets.all(10), color: Colors.green.shade50, width: double.infinity,
                         child: Text("4. HISTÓRICO DIÁRIO DE CONSUMO", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 14.5)),
                       ),
-                      SizedBox(height: 15),
+                      SizedBox(height: 14),
+                      if (!carregandoDias && diasAgrupados.length >= 2)
+                        _graficoLinhaConsumo(diasAgrupados),
+                      SizedBox(height: 14),
+                      Text("Detalhe dia a dia:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade700)),
+                      SizedBox(height: 6),
                       if (carregandoDias)
                         Center(child: CircularProgressIndicator())
                       else if (diasAgrupados.isEmpty)
@@ -1043,5 +1113,103 @@ class _DashboardAdminWebState extends State<DashboardAdminWeb> {
         ],
       ),
     );
+  }
+}
+
+// =========================================================================
+// PINTOR DO GRÁFICO DE LINHA — evolução do consumo diário de polifenóis,
+// com uma linha de referência tracejada no limite (1.000mg por padrão).
+// Cada ponto é colorido conforme a classificação do dia (verde/amarelo/vermelho).
+// =========================================================================
+class _LinhaConsumoPainterAdmin extends CustomPainter {
+  final List<dynamic> dias; // cada item: {data, total_polifenois, classificacao}
+  final double limite;
+
+  _LinhaConsumoPainterAdmin({required this.dias, required this.limite});
+
+  Color _corClassificacao(String? c) {
+    switch (c) {
+      case 'verde': return Colors.green.shade600;
+      case 'amarelo': return Colors.orange.shade700;
+      case 'vermelho': return Colors.red.shade600;
+      default: return Colors.grey;
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (dias.isEmpty) return;
+
+    const paddingEsquerda = 42.0; // espaço pros rótulos do eixo Y
+    const paddingTopo = 10.0;
+    const paddingBaixo = 6.0;
+    final larguraUtil = size.width - paddingEsquerda;
+    final alturaUtil = size.height - paddingTopo - paddingBaixo;
+
+    final valores = dias.map((d) => (double.tryParse(d['total_polifenois'].toString()) ?? 0)).toList();
+    double maiorValor = valores.fold<double>(0, (a, b) => b > a ? b : a);
+    // Garante que a linha de referência sempre apareça dentro da área visível,
+    // mesmo que nenhum dia tenha ultrapassado o limite ainda.
+    double escalaMax = (maiorValor > limite ? maiorValor * 1.15 : limite * 1.25);
+    if (escalaMax <= 0) escalaMax = limite * 1.25;
+
+    double yPara(double valor) => paddingTopo + alturaUtil - (valor / escalaMax) * alturaUtil;
+    double xPara(int index) => dias.length == 1
+        ? paddingEsquerda + larguraUtil / 2
+        : paddingEsquerda + (index / (dias.length - 1)) * larguraUtil;
+
+    // Linhas de grade horizontais leves (0%, 50%, 100% da escala)
+    final gridPaint = Paint()..color = Colors.grey.shade200..strokeWidth = 1;
+    for (var frac in [0.0, 0.5, 1.0]) {
+      final y = paddingTopo + alturaUtil - (frac * alturaUtil);
+      canvas.drawLine(Offset(paddingEsquerda, y), Offset(size.width, y), gridPaint);
+      final rotulo = (escalaMax * frac).toStringAsFixed(0);
+      final tp = TextPainter(
+        text: TextSpan(text: rotulo, style: TextStyle(color: Colors.grey.shade500, fontSize: 9)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(paddingEsquerda - tp.width - 6, y - tp.height / 2));
+    }
+
+    // Linha de referência (limite), tracejada em vermelho claro
+    final yLimite = yPara(limite);
+    final dashPaint = Paint()..color = Colors.red.shade300..strokeWidth = 1.6;
+    double dashX = paddingEsquerda;
+    while (dashX < size.width) {
+      canvas.drawLine(Offset(dashX, yLimite), Offset(dashX + 6, yLimite), dashPaint);
+      dashX += 10;
+    }
+
+    // Linha conectando os pontos de consumo
+    final linePaint = Paint()
+      ..color = PolifenoisTema.azulPrimario
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final path = Path();
+    for (int i = 0; i < dias.length; i++) {
+      final x = xPara(i);
+      final y = yPara(valores[i]);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, linePaint);
+
+    // Pontos coloridos por classificação do dia
+    for (int i = 0; i < dias.length; i++) {
+      final x = xPara(i);
+      final y = yPara(valores[i]);
+      final cor = _corClassificacao(dias[i]['classificacao']?.toString());
+      canvas.drawCircle(Offset(x, y), 4.2, Paint()..color = Colors.white);
+      canvas.drawCircle(Offset(x, y), 3.2, Paint()..color = cor);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LinhaConsumoPainterAdmin oldDelegate) {
+    return oldDelegate.dias != dias || oldDelegate.limite != limite;
   }
 }

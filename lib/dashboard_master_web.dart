@@ -1522,7 +1522,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
             ],
           ),
           SizedBox(height: 40),
-          Text("Evolução de Cadastros (Janeiro até hoje)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[800])),
+          Text("Evolução de Cadastros (Últimos 3 Meses)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[800])),
           SizedBox(height: 20),
           Center(child: _graficoEvolucaoMensal()),
         ],
@@ -1584,12 +1584,15 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       porMes[d['mes'].toString()] = int.tryParse(d['total'].toString()) ?? 0;
     }
 
-    int mesAtual = DateTime.now().month;
-    int anoAtual = DateTime.now().year;
+    DateTime hoje = DateTime.now();
     List<MapEntry<String, int>> serie = [];
-    for (int m = 1; m <= mesAtual; m++) {
-      String chave = "$anoAtual-${m.toString().padLeft(2, '0')}";
-      serie.add(MapEntry(nomesMeses[m - 1], porMes[chave] ?? 0));
+    // Últimos 3 meses, sempre rolando a partir de hoje (funciona mesmo virando o ano,
+    // ex: se hoje é fevereiro, mostra Dez/Jan/Fev).
+    for (int i = 2; i >= 0; i--) {
+      DateTime mesRef = DateTime(hoje.year, hoje.month - i, 1);
+      String chave = "${mesRef.year}-${mesRef.month.toString().padLeft(2, '0')}";
+      String rotulo = nomesMeses[mesRef.month - 1] + (mesRef.year != hoje.year ? "/${mesRef.year.toString().substring(2)}" : "");
+      serie.add(MapEntry(rotulo, porMes[chave] ?? 0));
     }
 
     int maior = serie.isEmpty ? 1 : serie.map((e) => e.value).reduce((a, b) => a > b ? a : b);

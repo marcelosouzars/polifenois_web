@@ -25,6 +25,8 @@ class DashboardMasterWeb extends StatefulWidget {
 class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   int _indiceMenu = 0;
   Map<String, dynamic>? _stats;
+  Map<String, dynamic>? _semaforoPorEstado;
+  bool _carregandoSemaforo = true;
   List<dynamic> _pacientes = [];
   List<dynamic> _pacientesFiltradas = [];
   bool _carregandoStats = true;
@@ -507,6 +509,26 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       }
     } catch (e) {
       setState(() => _carregandoStats = false);
+    }
+    _buscarSemaforoPorEstado();
+  }
+
+  Future<void> _buscarSemaforoPorEstado() async {
+    setState(() => _carregandoSemaforo = true);
+    try {
+      final response = await http.get(
+        Uri.parse("https://polifenois-backend.onrender.com/estatisticas-semaforo-por-estado"),
+      ).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        setState(() {
+          _semaforoPorEstado = jsonDecode(response.body);
+          _carregandoSemaforo = false;
+        });
+      } else {
+        setState(() => _carregandoSemaforo = false);
+      }
+    } catch (e) {
+      setState(() => _carregandoSemaforo = false);
     }
   }
 
@@ -1526,6 +1548,15 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           SizedBox(height: 20),
           _cardDistribuicaoGeografica(),
           SizedBox(height: 40),
+          Text("Semáforo de Consumo Diário por Estado", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[800])),
+          SizedBox(height: 6),
+          Text(
+            "Quantidade de gestantes em cada situação HOJE, agrupadas por estado (só considera trimestres com monitoramento ativo).",
+            style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+          ),
+          SizedBox(height: 20),
+          _cardSemaforoPorEstado(),
+          SizedBox(height: 40),
           Text("Evolução de Cadastros (Últimos 3 Meses)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey[800])),
           SizedBox(height: 20),
           Center(child: _graficoEvolucaoMensal()),
@@ -1633,6 +1664,59 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
           _blocoPizza("Gestantes por Região", porRegiao),
         ],
       ),
+    );
+  }
+
+  Widget _cardSemaforoPorEstado() {
+    if (_carregandoSemaforo) {
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(40),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+        child: Center(child: CircularProgressIndicator(color: Color(0xFF1A237E))),
+      );
+    }
+
+    List<MapEntry<String, int>> _extrair(String chave) {
+      final lista = _semaforoPorEstado?[chave] as List<dynamic>? ?? [];
+      return lista.map((e) => MapEntry(e['estado'].toString(), int.tryParse(e['total'].toString()) ?? 0)).toList();
+    }
+
+    final vermelho = _extrair('vermelho');
+    final amarelo = _extrair('amarelo');
+    final verde = _extrair('verde');
+
+    final semDadosDeTodo = vermelho.isEmpty && amarelo.isEmpty && verde.isEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
+      ),
+      child: semDadosDeTodo
+          ? Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Center(
+                child: Text(
+                  "Nenhuma gestante em trimestre monitorado com refeições registradas hoje.",
+                  style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          : Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: 30,
+              runSpacing: 30,
+              children: [
+                _blocoPizza("🔴 Exposição Elevada por Estado", vermelho),
+                _blocoPizza("🟡 Atenção por Estado", amarelo),
+                _blocoPizza("🟢 Consumo Adequado por Estado", verde),
+              ],
+            ),
     );
   }
 

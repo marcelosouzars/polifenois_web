@@ -1585,9 +1585,17 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
         children: [
           Stack(
             children: [
-              Icon(Icons.trending_up, color: Color(0xFF1A237E), size: 18),
-              Center(
-                child: Text("Novos cadastros", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A237E), fontSize: 12.5)),
+              Positioned(top: 0, left: 0, child: Icon(Icons.trending_up, color: Color(0xFF1A237E), size: 18)),
+              Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    "Novos cadastros",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A237E), fontSize: 12.5),
+                  ),
+                ),
               ),
             ],
           ),
@@ -2231,18 +2239,25 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
       child: Stack(
         children: [
           // Ícone de identificação no canto superior esquerdo do card
-          Icon(icon, color: cor, size: 20),
-          // Título centralizado no topo + número logo abaixo
-          Column(
-            children: [
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600], fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          Positioned(top: 0, left: 0, child: Icon(icon, color: cor, size: 20)),
+          // Título centralizado (largura toda do card) + número logo abaixo,
+          // com um respiro no topo pra não sobrepor o ícone.
+          Padding(
+            padding: EdgeInsets.only(top: 26),
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                children: [
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                  SizedBox(height: 8),
+                  Text(valor, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+                ],
               ),
-              SizedBox(height: 8),
-              Text(valor, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
-            ],
+            ),
           ),
         ],
       ),

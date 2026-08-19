@@ -1661,7 +1661,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
       ),
       child: Wrap(
-        alignment: WrapAlignment.spaceEvenly,
+        alignment: WrapAlignment.center,
         spacing: 30,
         runSpacing: 30,
         children: [
@@ -1713,7 +1713,7 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
               ),
             )
           : Wrap(
-              alignment: WrapAlignment.spaceEvenly,
+              alignment: WrapAlignment.center,
               spacing: 30,
               runSpacing: 30,
               children: [
@@ -1821,41 +1821,51 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
 
   Widget _blocoPizza(String titulo, List<MapEntry<String, int>> dados) {
     final total = dados.fold<int>(0, (soma, e) => soma + e.value);
+    // Sem dados: desenha um círculo cinza "vazio" no lugar da pizza, pra manter
+    // o mesmo formato/altura das outras pizzas da fileira (nada de bloco "quebrado").
+    final dadosDesenho = total == 0 ? [MapEntry("Sem dados", 1)] : dados;
+    final coresDesenho = total == 0 ? [Colors.grey.shade300] : _paletaPizza;
+
     return SizedBox(
-      width: 320,
+      width: 300,
       child: Column(
         children: [
-          Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A237E))),
+          Text(titulo, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A237E))),
           SizedBox(height: 16),
-          if (total == 0)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 30),
-              child: Text("Sem dados suficientes ainda", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
-            )
-          else ...[
-            SizedBox(
-              width: 170, height: 170,
-              child: CustomPaint(painter: _PizzaPainter(dados: dados, cores: _paletaPizza)),
-            ),
-            SizedBox(height: 14),
-            // Legenda: cor + rótulo + percentual, limitado às maiores fatias pra não poluir
-            ...dados.take(8).toList().asMap().entries.map((entry) {
-              final i = entry.key;
-              final e = entry.value;
-              final pct = total > 0 ? (e.value / total * 100) : 0;
-              return Padding(
-                padding: EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    Container(width: 10, height: 10, decoration: BoxDecoration(color: _paletaPizza[i % _paletaPizza.length], shape: BoxShape.circle)),
-                    SizedBox(width: 8),
-                    Expanded(child: Text(e.key, style: TextStyle(fontSize: 12))),
-                    Text("${e.value} (${pct.toStringAsFixed(0)}%)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                  ],
-                ),
-              );
-            }).toList(),
-          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 140, height: 140,
+                child: CustomPaint(painter: _PizzaPainter(dados: dadosDesenho, cores: coresDesenho)),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: total == 0
+                    ? Text("Sem dados suficientes ainda", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 12.5))
+                    // Legenda: cor + rótulo + percentual, limitado às maiores fatias pra não poluir
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: dados.take(8).toList().asMap().entries.map((entry) {
+                          final i = entry.key;
+                          final e = entry.value;
+                          final pct = total > 0 ? (e.value / total * 100) : 0;
+                          return Padding(
+                            padding: EdgeInsets.symmetric(vertical: 2),
+                            child: Row(
+                              children: [
+                                Container(width: 10, height: 10, decoration: BoxDecoration(color: _paletaPizza[i % _paletaPizza.length], shape: BoxShape.circle)),
+                                SizedBox(width: 8),
+                                Expanded(child: Text(e.key, style: TextStyle(fontSize: 12))),
+                                Text("${e.value} (${pct.toStringAsFixed(0)}%)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+              ),
+            ],
+          ),
         ],
       ),
     );

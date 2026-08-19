@@ -1575,37 +1575,37 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
     final semana = _v(_stats?['cadastros']?['ultima_semana']);
     return Container(
       width: 320,
-      padding: EdgeInsets.all(22),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(Icons.trending_up, color: Color(0xFF1A237E), size: 20),
-            SizedBox(width: 8),
-            Text("Novos cadastros", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A237E), fontSize: 14)),
-          ]),
-          SizedBox(height: 16),
+          Stack(
+            children: [
+              Icon(Icons.trending_up, color: Color(0xFF1A237E), size: 18),
+              Center(
+                child: Text("Novos cadastros", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A237E), fontSize: 12.5)),
+              ),
+            ],
+          ),
+          SizedBox(height: 10),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(trinta, style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.black87)),
-                  Text("Últimos 30 dias", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  Text(trinta, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  Text("Últimos 30 dias", style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
                 ],
               ),
-              Container(width: 1, height: 40, color: Colors.grey.shade300),
+              Container(width: 1, height: 32, color: Colors.grey.shade300),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(semana, style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.black87)),
-                  Text("Última semana", style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  Text(semana, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  Text("Última semana", style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
                 ],
               ),
             ],
@@ -2212,19 +2212,28 @@ class _DashboardMasterWebState extends State<DashboardMasterWeb> {
   Widget _cardKPI(String label, String valor, IconData icon, Color cor) {
     return Container(
       width: 250,
-      padding: EdgeInsets.all(25),
+      padding: EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Icon(icon, color: cor, size: 30),
-          SizedBox(height: 15),
-          Text(valor, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87)),
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          // Ícone de identificação no canto superior esquerdo do card
+          Icon(icon, color: cor, size: 20),
+          // Título centralizado no topo + número logo abaixo
+          Column(
+            children: [
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              ),
+              SizedBox(height: 8),
+              Text(valor, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+            ],
+          ),
         ],
       ),
     );
